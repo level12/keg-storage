@@ -1,0 +1,4 @@
+# These are only used when building the wheelhouse.  Since our deployment scenarios only use
+# packages from the wheelhouse, as long as we get the right versions in there, the
+# other requirements files don't need to care about where the packages come from, only that they
+# are installed.  There should be symmetry between this file and install-only.txt.

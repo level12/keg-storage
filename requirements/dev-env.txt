@@ -1,0 +1,2 @@
+-r include/install-only.txt
+-r include/common.txt

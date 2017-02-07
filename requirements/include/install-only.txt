@@ -1,0 +1,4 @@
+# These packages are all built from custom locations.  So they need to be specified separately
+# so they can be included only when installing.  There should be symmetry between this file and
+# build-only.txt.
+

@@ -1,0 +1,19 @@
+dependencies:
+  override:
+    # Install tox and the pyenv plugin for tox so we can activate multiple
+    # Python binaries of the same major version onto the path at the same time
+    - pip install tox tox-pyenv
+    - pyenv local 2.7.6 3.4.3 3.5.0 pypy-2.5.0
+    - sudo apt-get update --fix-missing
+    - sudo apt-get install -y -qq libpython3.4
+
+    # Install the deadsnakes ppa repo so we can install libpython3.5
+    - sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys DB82666C
+    - sudo add-apt-repository -y ppa:fkrull/deadsnakes
+    - sudo apt-get update
+
+    - sudo apt-get install -y -qq libpython3.5
+
+test:
+  post:
+    - pip install codecov && codecov

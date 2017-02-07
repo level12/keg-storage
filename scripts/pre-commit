@@ -1,0 +1,4 @@
+#!/bin/sh
+
+# cwd = git project root
+scripts/flake8-precommit

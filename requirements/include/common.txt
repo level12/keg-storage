@@ -1,0 +1,8 @@
+boto3
+coveralls
+flake8
+paramiko
+pytest
+pytest-cov
+tox
+wrapt
