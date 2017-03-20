@@ -10,7 +10,7 @@ setup(
     name="lib",
     setup_requires=['setuptools_scm'],
     use_scm_version=True,
-    description="",
+    description="The starting porint for a keg library",
     long_description='\n\n'.join((README, CHANGELOG)),
     author="Level 12 Developers",
     author_email="devteam@level12.io",
