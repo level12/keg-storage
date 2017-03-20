@@ -1,0 +1,13 @@
+*.pyc
+*.pyo
+*.egg-info
+.cache/
+build/
+dist/
+.ci/
+
+.coverage
+coverage.xml
+.tox
+htmlcov/
+pytest-reports/
