@@ -7,14 +7,14 @@ README = open(osp.join(cdir, 'README.rst')).read()
 CHANGELOG = open(osp.join(cdir, 'CHANGELOG.rst')).read()
 
 setup(
-    name="lib",
+    name="Keg-Storage",
     setup_requires=['setuptools_scm'],
     use_scm_version=True,
-    description="The starting porint for a keg library",
+    description="A simple storage interface with multiple backends for use in a Keg_ app.",
     long_description='\n\n'.join((README, CHANGELOG)),
     author="Level 12 Developers",
     author_email="devteam@level12.io",
-    url='https://github.com/level12/keg-baselib',
+    url='https://github.com/level12/keg-storage',
     classifiers=[
         'Intended Audience :: Developers',
         'License :: OSI Approved :: BSD License',
