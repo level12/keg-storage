@@ -26,5 +26,8 @@ setup(
     license='BSD',
     packages=find_packages(),
     zip_safe=True,
-    install_requires=[],
+    install_requires=[
+        'botocore',
+        'boto3',
+    ],
 )
