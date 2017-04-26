@@ -1,3 +1,6 @@
 tox
 pytest
 pytest-coverage
+wrapt
+mock
+flake8

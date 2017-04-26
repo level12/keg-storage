@@ -1,2 +1,5 @@
-botocore
 boto3
+botocore
+kegelements
+mock
+paramiko

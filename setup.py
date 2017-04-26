@@ -27,7 +27,8 @@ setup(
     packages=find_packages(),
     zip_safe=True,
     install_requires=[
-        'botocore',
         'boto3',
+        'botocore',
+        'kegelements',
     ],
 )
