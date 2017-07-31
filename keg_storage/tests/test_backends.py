@@ -1,5 +1,6 @@
 import keg_storage
 
+
 class TestStorageBackend:
 
     def test_methods_not_implemented(self):

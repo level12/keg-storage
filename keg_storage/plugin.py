@@ -22,5 +22,3 @@ class Storage:
 
     def get_interface(self, interface=None):
         return self._interfaces[interface or self.interface]
-
-

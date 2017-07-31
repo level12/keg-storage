@@ -1,2 +1,2 @@
-from .plugin import Storage
+from .plugin import Storage  # noqa
 from .backends import *  # noqa
