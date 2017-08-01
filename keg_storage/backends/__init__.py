@@ -1,3 +1,3 @@
-from .base import StorageBackend
-from .s3 import S3Storage
-from .sftp import BatchSFTPStorage, SFTPStorage
+from .base import StorageBackend  # noqa
+from .s3 import S3Storage  # noqa
+from .sftp import BatchSFTPStorage, SFTPStorage  # noqa

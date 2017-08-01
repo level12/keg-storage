@@ -3,8 +3,6 @@ import wrapt
 
 import keg_storage
 
-from keg_elements.testing import DontCare
-
 
 @wrapt.decorator(adapter=lambda self: None)
 def sftp_mocked(wrapped, instance, args, kwargs):
