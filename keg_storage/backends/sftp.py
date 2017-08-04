@@ -1,6 +1,7 @@
 import contextlib
 import logging
 
+from keg_elements import crypto
 from paramiko import SSHClient
 
 from .base import StorageBackend
@@ -14,24 +15,45 @@ class BatchSFTPStorage(StorageBackend):
     A `StorageBackend` that interacts with a single, pre-connected SFTP client.
     """
 
-    def __init__(self, sftp_client, name='sftp'):
+    def __init__(self, sftp_client, crypto_key=None, name='sftp'):
         """
         :param sftp_client: is an paramiko.SFTPClient object.
         :param name: is the name of the storage backend.
         """
         self.sftp_client = sftp_client
         self.name = name
+        self.crypto_key = crypto_key
 
     def list(self, path):
         return self.sftp_client.listdir(path)
 
+    def _get_encrypted(self, path, dest):
+        chunk_size = 10 * 1024 * 1024
+        with self.sftp_client.open(path, 'rb', bufsize=chunk_size) as infile:
+            with open(dest, 'wb') as outfile:
+                for chunk in crypto.encrypt_fileobj(self.crypto_key, infile, chunk_size):
+                    outfile.write(chunk)
+
     def get(self, path, dest):
         log.info("Getting file from '%s' to '%s'", path, dest)
-        self.sftp_client.get(path, dest)
+        if self.crypto_key:
+            self._get_encrypted(path, dest)
+        else:
+            self.sftp_client.get(path, dest)
+
+    def _put_encrypted(self, path, dest):
+        chunk_size = 10 * 1024 * 1024
+        with open(path, 'rb') as infile:
+            with self.sftp_client.open(dest, 'wb', bufsize=chunk_size) as outfile:
+                for chunk in crypto.encrypt_fileobj(self.crypto_key, infile, chunk_size):
+                    outfile.write(chunk)
 
     def put(self, path, dest):
         log.info("Uploading file from '%s' to '%s'", path, dest)
-        self.sftp_client.put(path, dest)
+        if self.crypto_key:
+            self._put_encrypted(path, dest)
+        else:
+            self.sftp_client.put(path, dest)
 
     def delete(self, path):
         log.info("Deleting remote file '%s'", path)
@@ -99,4 +121,4 @@ class SFTPStorage(StorageBackend):
 
             sftp = client.open_sftp()
             sftp.chdir(self.remote_base_dpath)
-            yield BatchSFTPStorage(sftp, self.crypto_key)
+            yield BatchSFTPStorage(sftp, self.crypto_key, name=self.name)
