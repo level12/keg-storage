@@ -1,8 +1,8 @@
 from collections import namedtuple
-from unittest import mock
 
 from botocore.exceptions import ClientError
 import pytest
+from mock import mock
 
 import keg_storage.backends as backends
 from keg_storage.backends.base import FileNotFoundInStorageError

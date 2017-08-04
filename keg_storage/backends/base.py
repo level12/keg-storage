@@ -18,7 +18,7 @@ class StorageBackend:
         raise NotImplementedError()
 
     def __str__(self):
-        return str(type(self).__name__)
+        return self.__class__.__name__
 
 
 class FileNotFoundInStorageError(Exception):
