@@ -7,7 +7,7 @@ README = open(osp.join(cdir, 'README.rst')).read()
 CHANGELOG = open(osp.join(cdir, 'CHANGELOG.rst')).read()
 
 setup(
-    name="Keg-Storage",
+    name="KegStorage",
     setup_requires=['setuptools_scm'],
     use_scm_version=True,
     description="A simple storage interface with multiple backends for use in a Keg_ app.",
