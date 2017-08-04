@@ -16,3 +16,15 @@ class StorageBackend:
 
     def delete(self, path):
         raise NotImplementedError()
+
+    def __str__(self):
+        return str(type(self).__name__)
+
+
+class FileNotFoundInStorageError(Exception):
+    def __init__(self, storage_type, filename):
+        self.storage_type = storage_type
+        self.filename = filename
+
+    def __str__(self):
+        return "File {} not found in {}.".format(self.filename, str(self.storage_type))
