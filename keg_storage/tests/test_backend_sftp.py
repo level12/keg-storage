@@ -1,34 +1,48 @@
-from mock import patch
+import io
+from collections import namedtuple
+
+from keg_elements import crypto
+import mock
 import wrapt
 
 import keg_storage
 
 
-@wrapt.decorator(adapter=lambda self: None)
-def sftp_mocked(wrapped, instance, args, kwargs):
+def sftp_mocked(**kwargs):
+    @wrapt.decorator(adapter=lambda self: None)
+    def wrapper(wrapped, instance, args, _kwargs):
 
-    @patch('keg_storage.sftp.SSHClient', autospec=True, spec_set=True)
-    @patch('keg_storage.sftp.log', autospec=True, spec_set=True)
-    def run_test(m_log, m_SSHC):
-        m_sftp = m_SSHC.return_value.__enter__.return_value.open_sftp.return_value
-        wrapped(
-            keg_storage.sftp.SFTPStorage('foo', 'bar', None, 'known_hosts', 'data', '/home/bar'),
-            m_sftp,
-            m_log
-        )
+        @mock.patch('keg_storage.sftp.SSHClient', autospec=True, spec_set=True)
+        @mock.patch('keg_storage.sftp.log', autospec=True, spec_set=True)
+        def run_test(m_log, m_SSHC):
+            m_sftp = m_SSHC.return_value.__enter__.return_value.open_sftp.return_value
+            wrapped(
+                keg_storage.sftp.SFTPStorage(
+                    kwargs.get('host', 'foo'),
+                    kwargs.get('username', 'bar'),
+                    kwargs.get('key_filename'),
+                    kwargs.get('known_hosts_fpath', 'known_hosts'),
+                    kwargs.get('local_base_dpath', 'data'),
+                    kwargs.get('remote_base_dpath', '/home/bar'),
+                    crypto_key=kwargs.get('crypto_key')
+                ),
+                m_sftp,
+                m_log
+            )
 
-    return run_test()
+        return run_test()
+    return wrapper
 
 
 class TestSFTPStorage:
-    @sftp_mocked
+    @sftp_mocked()
     def test_sftp_list_files(self, sftp, m_sftp, m_log):
         files = ['a.txt', 'b.pdf', 'more.txt']
         m_sftp.listdir.return_value = files
         assert sftp.list('.') == files
         assert m_log.info.mock_calls == []
 
-    @sftp_mocked
+    @sftp_mocked()
     def test_sftp_get_file(self, sftp, m_sftp, m_log):
         sftp.get('some-file.txt', '/fake/some-file-dest.txt')
         m_sftp.chdir.assert_called_once_with('/home/bar')
@@ -40,7 +54,29 @@ class TestSFTPStorage:
             '/fake/some-file-dest.txt'
         )
 
-    @sftp_mocked
+    def test_sftp_get_file_encrypted(self, tmpdir):
+        dstfpath = str(tmpdir.mkdir('output').join('output.txt'))
+        crypto_key = b'a' * 32
+
+        @sftp_mocked(crypto_key=crypto_key)
+        def check(sftp, m_sftp, m_log):
+            m_sftp.open.return_value = io.BytesIO(b'foo-bar')
+            m_sftp.stat = mock.MagicMock(return_value=namedtuple('stat', ['st_size'])(7))
+            sftp.get('some-file.txt', dstfpath)
+            m_sftp.chdir.assert_called_once_with('/home/bar')
+            m_sftp.open.assert_called_once_with('some-file.txt', 'rb', bufsize=10 * 1024 * 1024)
+            assert m_sftp.get.call_count == 0
+            m_log.info.assert_called_once_with(
+                "Getting file from '%s' to '%s'",
+                'some-file.txt',
+                dstfpath
+            )
+            assert b'foo-bar' not in open(dstfpath, 'rb').read()
+            assert crypto.decrypt_bytesio(crypto_key, dstfpath).read() == b'foo-bar'
+
+        check()
+
+    @sftp_mocked()
     def test_sftp_put_file(self, sftp, m_sftp, m_log):
         sftp.put('/tmp/abc/baz.txt', 'dest/zab.txt')
         m_sftp.put.assert_called_once_with('/tmp/abc/baz.txt', 'dest/zab.txt')
@@ -50,7 +86,34 @@ class TestSFTPStorage:
             'dest/zab.txt'
         )
 
-    @sftp_mocked
+    def test_sftp_put_file_encrypted(self, tmpdir):
+        srcfpath = str(tmpdir.mkdir('input').join('input.txt'))
+        with open(srcfpath, 'wb') as srcfile:
+            srcfile.write(b'foo-bar')
+        destfpath = str(tmpdir.mkdir('output').join('output.txt'))
+        crypto_key = b'a' * 32
+
+        @sftp_mocked(crypto_key=crypto_key)
+        def check(sftp, m_sftp, m_log):
+            m_sftp.open.return_value = open(destfpath, 'wb')
+            m_sftp.stat = mock.MagicMock(return_value=namedtuple('stat', ['st_size'])(7))
+
+            sftp.put(srcfpath, 'dest/some-file.txt')
+
+            m_sftp.chdir.assert_called_once_with('/home/bar')
+            m_sftp.open.assert_called_once_with('dest/some-file.txt', 'wb', bufsize=10*1024*1024)
+            assert m_sftp.put.call_count == 0
+            m_log.info.assert_called_once_with(
+                "Uploading file from '%s' to '%s'",
+                srcfpath,
+                'dest/some-file.txt',
+            )
+            assert b'foo-bar' not in open(destfpath, 'rb').read()
+            assert crypto.decrypt_bytesio(crypto_key, destfpath).read() == b'foo-bar'
+
+        check()
+
+    @sftp_mocked()
     def test_sftp_delete_file(self, sftp, m_sftp, m_log):
         sftp.delete('/tmp/abc/baz.txt')
         m_sftp.remove.assert_called_once_with('/tmp/abc/baz.txt')

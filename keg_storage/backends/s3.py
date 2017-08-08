@@ -1,7 +1,7 @@
 import botocore
 import boto3
 
-from .base import StorageBackend
+from .base import StorageBackend, FileNotFoundInStorageError
 
 
 class S3Storage(StorageBackend):
@@ -22,12 +22,23 @@ class S3Storage(StorageBackend):
         return self.bucket.objects.filter(Prefix=path).all()
 
     def get(self, path, dest):
-        self.transfer.download_file(self.bucket.name, path, dest)
+        try:
+            self.transfer.download_file(self.bucket.name, path, dest)
+        except botocore.exceptions.ClientError as e:
+            error_code = int(e.response['Error']['Code'])
+            if error_code == 404:
+                raise FileNotFoundInStorageError(storage_type=self, filename=path)
+            raise e
 
     def put(self, path, dest):
         return self.transfer.upload_file(path, self.bucket.name, dest)
 
     def delete(self, path):
+        # The s3.Bucket.objectsCollection evaluates as True even if empty.
+        # Extracting the filenames is the easiest way to get its length.
+        filenames = [f.key for f in self.list(path)]
+        if not filenames:
+            raise FileNotFoundInStorageError(storage_type=self, filename=path)
         result = self.bucket.delete_objects(Delete={'Objects': [{'Key': path}]})
         return result['ResponseMetadata']['HTTPStatusCode'] == 200
 
