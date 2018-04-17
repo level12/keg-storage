@@ -9,9 +9,19 @@ from keg_storage.backends.base import FileNotFoundInStorageError
 
 
 class TestS3Storage:
-    def test_init_sets_up_correctly(self):
-        s3 = backends.S3Storage('bucket', 'key', 'secret', name='test')
+
+    @mock.patch('keg_storage.backends.S3Storage._create_boto_session')
+    def test_init_sets_up_correctly(self, result):
+        s3 = backends.S3Storage('bucket', aws_access_key_id='key', aws_secret_access_key='secret',
+                                name='test')
         assert s3.name == 'test'
+
+        s3 = backends.S3Storage('bucket', name='test-no-key')
+        assert s3.name == 'test-no-key'
+
+        s3 = backends.S3Storage('bucket', aws_profile='profile', name='test-with-profile')
+        assert result.call_args[1]['profile'] == 'profile'
+        assert s3.name == 'test-with-profile'
 
     def test_get(self, tmpdir):
         s3 = backends.S3Storage('bucket', 'key', 'secret', name='test')
