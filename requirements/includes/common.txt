@@ -3,3 +3,5 @@ botocore
 kegelements
 mock
 paramiko
+humanize
+flask_webtest
