@@ -4,12 +4,15 @@ from setuptools import setup, find_packages
 
 cdir = osp.abspath(osp.dirname(__file__))
 README = open(osp.join(cdir, 'README.rst')).read()
-CHANGELOG = open(osp.join(cdir, 'CHANGELOG.rst')).read()
+CHANGELOG = open(osp.join(cdir, 'changelog.rst')).read()
+
+version = {}
+with open(osp.join(cdir, 'keg_storage', 'version.py')) as version_fp:
+    exec(version_fp.read(), version)
 
 setup(
     name="KegStorage",
     setup_requires=['setuptools_scm'],
-    use_scm_version=True,
     description="A simple storage interface with multiple backends for use in a Keg_ app.",
     long_description='\n\n'.join((README, CHANGELOG)),
     author="Level 12 Developers",
@@ -26,6 +29,7 @@ setup(
     license='BSD',
     packages=find_packages(),
     zip_safe=True,
+    version=version['VERSION'],
     install_requires=[
         'boto3',
         'botocore',
