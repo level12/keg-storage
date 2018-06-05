@@ -30,5 +30,6 @@ setup(
         'boto3',
         'botocore',
         'kegelements',
+        'humanize',
     ],
 )
