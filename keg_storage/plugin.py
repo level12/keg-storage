@@ -23,7 +23,7 @@ class Storage:
         )
         self.interface = next(iter(self._interfaces)) if self._interfaces else None
 
-        self.init_cli(app)
+        self.cli_group = self.init_cli(app)
 
     def get_interface(self, interface=None):
         return self._interfaces[interface or self.interface]
