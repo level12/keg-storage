@@ -35,5 +35,6 @@ setup(
         'botocore',
         'kegelements',
         'humanize',
+        'BlazeUtils',
     ],
 )
