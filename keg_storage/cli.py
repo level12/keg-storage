@@ -7,6 +7,24 @@ from keg_storage.backends.base import FileNotFoundInStorageError
 from keg_storage import utils
 
 
+@click.group('_storage')
+@click.option('--location')
+@with_appcontext
+@click.pass_context
+def storage(ctx, location):
+    from flask import current_app
+    location = location or current_app.config.get('KEG_STORAGE_DEFAULT_LOCATION')
+    if not location:
+        click.echo('No location given and no default was configured.')
+        ctx.abort()
+    try:
+        ctx.obj.data['storage'] = current_app.storage.get_interface(location)
+    except KeyError:
+        click.echo('The location {} does not exist. '
+                   'Pass --location or change your configuration.'.format(location))
+        ctx.abort()
+
+
 def handle_not_found(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
@@ -21,7 +39,7 @@ def handle_not_found(func):
     return wrapper
 
 
-@click.command('list')
+@storage.command('list')
 @click.option('--simple', is_flag=True)
 @click.argument('path', default='/')
 @click.pass_context
@@ -41,7 +59,7 @@ def storage_list(ctx, path, simple):
     click.echo("\n".join(lines))
 
 
-@click.command('get')
+@storage.command('get')
 @click.argument('path')
 @click.argument('dest', default='')
 @click.pass_context
@@ -54,7 +72,7 @@ def storage_get(ctx, path, dest):
     click.echo("Downloaded {path} to {dest}.".format(path=path, dest=dest))
 
 
-@click.command('put')
+@storage.command('put')
 @click.argument('path')
 @click.argument('key')
 @click.pass_context
@@ -63,7 +81,7 @@ def storage_put(ctx, path, key):
     click.echo("Uploaded {path} to {key}.".format(key=key, path=path))
 
 
-@click.command('delete')
+@storage.command('delete')
 @click.argument('path')
 @click.pass_context
 @handle_not_found
@@ -72,7 +90,7 @@ def storage_delete(ctx, path):
     click.echo("Deleted {path}.".format(path=path))
 
 
-@click.command('link_for')
+@storage.command('link_for')
 @click.argument('path')
 @click.option('--expiration', '-e', default=3600,
               help="Expiration time (in seconds) of the link, defaults to 1 hours")
@@ -88,7 +106,7 @@ def storage_link_for(ctx, path, expiration):
     click.echo("{data}".format(data=retval))
 
 
-@click.command('reencrypt')
+@storage.command('reencrypt')
 @click.argument('path')
 @click.pass_context
 @handle_not_found
@@ -101,29 +119,4 @@ def storage_reencrypt(ctx, path):
 
 
 def add_cli_to_app(app, cli_group_name):
-    @app.cli.group(
-        cli_group_name,
-        help='Commands for working with remotely stored files.'
-    )
-    @click.option('--location')
-    @with_appcontext
-    @click.pass_context
-    def storage(ctx, location):
-        from flask import current_app
-        location = location or current_app.config.get('KEG_STORAGE_DEFAULT_LOCATION')
-        if not location:
-            click.echo('No location given and no default was configured.')
-            ctx.abort()
-        try:
-            ctx.obj.data['storage'] = current_app.storage.get_interface(location)
-        except KeyError:
-            click.echo('The location {} does not exist. '
-                       'Pass --location or change your configuration.'.format(location))
-            ctx.abort()
-
-    storage.add_command(storage_list)
-    storage.add_command(storage_get)
-    storage.add_command(storage_put)
-    storage.add_command(storage_delete)
-    storage.add_command(storage_link_for)
-    storage.add_command(storage_reencrypt)
+    app.cli.add_command(storage, name=cli_group_name)
