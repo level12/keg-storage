@@ -27,7 +27,7 @@ class S3Storage(StorageBackend):
                                      region_name=region)
 
     def list(self, path):
-        return self.bucket.objects.filter(Prefix=path).all()
+        return [x.key for x in self.bucket.objects.filter(Prefix=path).all()]
 
     def get(self, path, dest):
         try:
