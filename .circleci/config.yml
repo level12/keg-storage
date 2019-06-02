@@ -1,0 +1,41 @@
+version: 2
+jobs:
+    python-test:
+        docker:
+            - image: level12/python-test-multi
+
+        steps:
+            - checkout
+
+            - run:
+                name: folder listing for debugging
+                command: ls -al
+
+            - run:
+                name: install tox from pypi
+                command: >
+                    python3.6 -m pip install --upgrade --force-reinstall --quiet tox
+
+            - run:
+                name: version checks
+                command: |
+                    python3.6 --version
+                    pip --version
+                    tox --version
+
+            - run:
+                name: run tox
+                command: tox
+
+            - store_test_results:
+                path: .ci/test-reports/
+
+            - run:
+                name: push code coverage
+                command: bash <(curl -s https://codecov.io/bash) -X coveragepy
+
+workflows:
+    version: 2
+    build:
+        jobs:
+            - python-test
