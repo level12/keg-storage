@@ -10,7 +10,7 @@ from keg_storage.backends.base import FileNotFoundInStorageError
 
 class TestS3Storage:
 
-    @mock.patch('keg_storage.backends.S3Storage._create_boto_session')
+    @mock.patch('keg_storage.backends.S3Storage._create_boto_session', autospec=True, spec_set=True)
     def test_init_sets_up_correctly(self, result):
         s3 = backends.S3Storage('bucket', aws_access_key_id='key', aws_secret_access_key='secret',
                                 name='test')
