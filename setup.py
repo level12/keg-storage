@@ -37,4 +37,19 @@ setup(
         'humanize',
         'BlazeUtils',
     ],
+    extras_require={
+        'sftp': [
+            'paramiko',
+        ],
+        'test': [
+            'paramiko',
+            'tox',
+            'pytest',
+            'pytest-coverage',
+            'wrapt',
+            'mock',
+            'flake8',
+            'flask_webtest',
+        ],
+    }
 )
