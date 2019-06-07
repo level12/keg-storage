@@ -36,6 +36,7 @@ setup(
         'kegelements',
         'humanize',
         'BlazeUtils',
+        'aws_encryption_sdk',
     ],
     extras_require={
         'sftp': [
