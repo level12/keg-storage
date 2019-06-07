@@ -1,5 +1,6 @@
 import click
 import functools
+from flask import current_app
 from flask.cli import with_appcontext
 import humanize
 
@@ -19,6 +20,7 @@ def storage(ctx, location):
         ctx.abort()
     try:
         ctx.obj.data['storage'] = current_app.storage.get_interface(location)
+        ctx.obj.data['interface'] = location
     except KeyError:
         click.echo('The location {} does not exist. '
                    'Pass --location or change your configuration.'.format(location))
@@ -64,11 +66,12 @@ def storage_list(ctx, path, simple):
 @click.argument('dest', default='')
 @click.pass_context
 @handle_not_found
+@with_appcontext
 def storage_get(ctx, path, dest):
     if dest == '':
         dest = path.split('/')[-1]
 
-    ctx.obj.data['storage'].get(path, dest)
+    current_app.storage.get(path, dest, interface=ctx.obj.data['interface'])
     click.echo("Downloaded {path} to {dest}.".format(path=path, dest=dest))
 
 
@@ -76,8 +79,9 @@ def storage_get(ctx, path, dest):
 @click.argument('path')
 @click.argument('key')
 @click.pass_context
+@with_appcontext
 def storage_put(ctx, path, key):
-    ctx.obj.data['storage'].put(path, key)
+    current_app.storage.put(path, key, interface=ctx.obj.data['interface'])
     click.echo("Uploaded {path} to {key}.".format(key=key, path=path))
 
 

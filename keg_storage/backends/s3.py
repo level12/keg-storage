@@ -1,3 +1,4 @@
+import io
 import botocore
 import boto3
 import boto3.s3.transfer
@@ -7,8 +8,10 @@ from .base import StorageBackend, FileNotFoundInStorageError
 
 class S3Storage(StorageBackend):
 
-    def __init__(self, bucket, aws_access_key_id=None, aws_secret_access_key=None,
-                 aws_region='us-east-1', aws_profile=None, name='s3'):
+    def __init__(self, bucket, *args, aws_access_key_id=None, aws_secret_access_key=None,
+                 aws_region='us-east-1', aws_profile=None, name='s3', **kwargs):
+
+        super().__init__(*args, **kwargs)
         self.name = name
 
         self.session = self._create_boto_session(key_id=aws_access_key_id,
@@ -18,7 +21,6 @@ class S3Storage(StorageBackend):
         self.s3 = self.session.client('s3')
 
         self.bucket = self.session.resource('s3').Bucket(bucket)
-        self.transfer = boto3.s3.transfer.S3Transfer(self.s3)
 
     def _create_boto_session(self, key_id=None, secret_key=None, profile=None, region=None):
         return boto3.session.Session(aws_access_key_id=key_id,
@@ -31,15 +33,34 @@ class S3Storage(StorageBackend):
 
     def get(self, path, dest):
         try:
-            self.transfer.download_file(self.bucket.name, path, dest)
+            resp = self.s3.get_object(
+                Bucket=self.bucket.name,
+                Key=path,
+            )
         except botocore.exceptions.ClientError as e:
-            error_code = int(e.response['Error']['Code'])
-            if error_code == 404:
+            if e.response['Error']['Code'] == 'NoSuchKey':
                 raise FileNotFoundInStorageError(storage_type=self, filename=path)
-            raise e
+            raise
+
+        stream = self.decrypt(resp['Body'])
+        with open(dest, mode='wb') as fp:
+            for chunk in stream:
+                fp.write(chunk)
 
     def put(self, path, dest):
-        return self.transfer.upload_file(path, self.bucket.name, dest)
+        data = io.BytesIO()
+        with open(path, mode='rb') as fp:
+            # S3 Requires a seekable file object and encryption is, by nature, unseekable until the
+            # entire thing is encrypted.
+            for chunk in self.encrypt(fp):
+                data.write(chunk)
+            data.seek(0)
+
+            self.s3.put_object(
+                Bucket=self.bucket.name,
+                Key=dest,
+                Body=data
+            )
 
     def delete(self, path):
         # The s3.Bucket.objectsCollection evaluates as True even if empty.

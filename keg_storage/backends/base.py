@@ -1,8 +1,23 @@
 class StorageBackend:
     name = None
 
-    def __init__(self, *args, **kwargs):
-        pass
+    def __init__(self, *args, encryption_provider=None, encrypt=True, decrypt=True, **kwargs):
+        self.encryption_provider = encryption_provider
+
+        self.should_encrypt = encrypt
+        self.should_decrypt = decrypt
+
+    def encrypt(self, readable):
+        if self.encryption_provider and self.should_encrypt:
+            return self.encryption_provider.encrypt(readable)
+        else:
+            return readable
+
+    def decrypt(self, readable):
+        if self.encryption_provider and self.should_decrypt:
+            return self.encryption_provider.decrypt(readable)
+        else:
+            return readable
 
     def list(self, path):
         """Returns an iterator over the given path"""

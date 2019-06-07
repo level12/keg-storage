@@ -1,4 +1,5 @@
 from collections import namedtuple
+import tempfile
 
 from botocore.exceptions import ClientError
 import pytest
@@ -25,33 +26,33 @@ class TestS3Storage:
 
     def test_get(self, tmpdir):
         s3 = backends.S3Storage('bucket', 'key', 'secret', name='test')
-        testdir = tmpdir.mkdir('storagetests')
-        remotefile = testdir.join('foo_remote')
-        remotefile.write('helloworld')
-        retrievedfile = testdir.join('foo_retrieved')
+        with tempfile.NamedTemporaryFile() as remote, tempfile.NamedTemporaryFile() as local:
+            remote.write(b'hello')
+            remote.seek(0)
 
-        def download_file(_1, _2, _3):
-            retrievedfile.write('helloworld')
+            def get_object(Bucket, Key):
+                return {'Body': remote}
 
-        s3.transfer.download_file = mock.MagicMock(side_effect=download_file)
-        s3.get(remotefile.strpath, retrievedfile.strpath)
-        assert remotefile.read() == retrievedfile.read()
+            s3.s3.get_object = mock.MagicMock(side_effect=get_object)
+            s3.get(remote.name, local.name)
+            assert local.read() == b'hello'
 
     def test_get_error_not_found(self):
         s3 = backends.S3Storage('bucket', 'key', 'secret', name='test')
         # Mock an S3/botocore ClientError
         client_error = ClientError(
             error_response={
-                'Error': {'Code': '404', 'Message': 'Not found'}
+                'Error': {'Code': 'NoSuchKey'}
             },
             operation_name='foo'
         )
-        s3.transfer.download_file = mock.MagicMock(side_effect=client_error)
+        s3.s3.get_object = mock.MagicMock(side_effect=client_error)
+
         with pytest.raises(FileNotFoundInStorageError) as exc_info:
             s3.get('bar', 'baz')
+
         assert str(exc_info.value.filename) == 'bar'
         assert str(exc_info.value.storage_type) == 'S3Storage'
-        s3.transfer.download_file.assert_called_once_with(s3.bucket.name, 'bar', 'baz')
 
     def test_get_error_other(self):
         s3 = backends.S3Storage('bucket', 'key', 'secret', name='test')
@@ -62,13 +63,12 @@ class TestS3Storage:
             },
             operation_name='foo'
         )
-        s3.transfer.download_file = mock.MagicMock(side_effect=client_error)
+        s3.s3.get_object = mock.MagicMock(side_effect=client_error)
         with pytest.raises(ClientError) as exc_info:
             s3.get('bar', 'baz')
         error = exc_info.value.response['Error']
         assert error['Code'] == '403'
         assert error['Message'] == 'Permission Denied'
-        s3.transfer.download_file.assert_called_once_with(s3.bucket.name, 'bar', 'baz')
 
     def test_delete(self):
         s3 = backends.S3Storage('bucket', 'key', 'secret', name='test')

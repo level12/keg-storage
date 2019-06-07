@@ -15,7 +15,7 @@ class TestCLI(CLIBase):
         assert results.output == 'No location given and no default was configured.\nAborted!\n'
 
         self.invoke('storage', '--location', 'loc', 'get', 'foo/bar')
-        m_get_interface.assert_called_once_with('loc')
+        m_get_interface.assert_called_with('loc')
 
     def test_bad_location(self, m_get_interface):
         m_get_interface.side_effect = KeyError
