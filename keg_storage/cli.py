@@ -42,23 +42,11 @@ def handle_not_found(func):
 
 
 @storage.command('list')
-@click.option('--simple', is_flag=True)
 @click.argument('path', default='/')
 @click.pass_context
-def storage_list(ctx, path, simple):
+def storage_list(ctx, path):
     objs = ctx.obj.data['storage'].list(path)
-
-    def fmt(item):
-        fmt_str = '{key}' if simple else '{date}\t{size}\t{key}'
-        keys = {
-            'date': humanize.naturaldate(item.last_modified),
-            'key': item.key,
-            'size': humanize.naturalsize(item.size, gnu=True),
-        }
-        return fmt_str.format(**keys)
-
-    lines = [fmt(item) for item in objs]
-    click.echo("\n".join(lines))
+    click.echo("\n".join(objs))
 
 
 @storage.command('get')
