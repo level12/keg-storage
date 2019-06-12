@@ -52,24 +52,26 @@ def storage_list(ctx, path):
 @storage.command('get')
 @click.argument('path')
 @click.argument('dest', default='')
+@click.option('--no-decrypt', is_flag=True)
 @click.pass_context
 @handle_not_found
 @with_appcontext
-def storage_get(ctx, path, dest):
+def storage_get(ctx, path, dest, no_decrypt):
     if dest == '':
         dest = path.split('/')[-1]
 
-    current_app.storage.get(path, dest, interface=ctx.obj.data['interface'])
+    current_app.storage.get(path, dest, interface=ctx.obj.data['interface'], decrypt=(not no_decrypt))
     click.echo("Downloaded {path} to {dest}.".format(path=path, dest=dest))
 
 
 @storage.command('put')
 @click.argument('path')
 @click.argument('key')
+@click.option('--no-encrypt', default=False, is_flag=True)
 @click.pass_context
 @with_appcontext
-def storage_put(ctx, path, key):
-    current_app.storage.put(path, key, interface=ctx.obj.data['interface'])
+def storage_put(ctx, path, key, no_encrypt):
+    current_app.storage.put(path, key, interface=ctx.obj.data['interface'], encrypt=no_encrypt)
     click.echo("Uploaded {path} to {key}.".format(key=key, path=path))
 
 

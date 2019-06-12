@@ -23,10 +23,10 @@ class StorageBackend:
         """Returns an iterator over the given path"""
         raise NotImplementedError()
 
-    def get(self, path, dest):
+    def get(self, path, dest, decrypt=True):
         raise NotImplementedError()
 
-    def put(self, path, dest):
+    def put(self, path, dest, encrypt=True):
         raise NotImplementedError()
 
     def delete(self, path):

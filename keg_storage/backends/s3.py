@@ -31,7 +31,7 @@ class S3Storage(StorageBackend):
     def list(self, path):
         return [x.key for x in self.bucket.objects.filter(Prefix=path).all()]
 
-    def get(self, path, dest):
+    def get(self, path, dest, decrypt=True):
         try:
             resp = self.s3.get_object(
                 Bucket=self.bucket.name,
@@ -42,24 +42,27 @@ class S3Storage(StorageBackend):
                 raise FileNotFoundInStorageError(storage_type=self, filename=path)
             raise
 
-        stream = self.decrypt(resp['Body'])
+        stream = self.decrypt(resp['Body']) if decrypt else resp['Body']
+
         with open(dest, mode='wb') as fp:
             for chunk in stream:
                 fp.write(chunk)
 
-    def put(self, path, dest):
+    def put(self, path, dest, encrypt=True):
         data = io.BytesIO()
         with open(path, mode='rb') as fp:
-            # S3 Requires a seekable file object and encryption is, by nature, unseekable until the
-            # entire thing is encrypted.
-            for chunk in self.encrypt(fp):
-                data.write(chunk)
-            data.seek(0)
+            if encrypt:
+                # S3 Requires a seekable file object and encryption is, by nature, unseekable until
+                # the entire thing is encrypted.
+
+                for chunk in self.encrypt(fp):
+                    data.write(chunk)
+                data.seek(0)
 
             self.s3.put_object(
                 Bucket=self.bucket.name,
                 Key=dest,
-                Body=data
+                Body=fp
             )
 
     def delete(self, path):
