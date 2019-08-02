@@ -1,3 +1,9 @@
+import collections
+
+
+ListEntry = collections.namedtuple('ListEntry', ['name', 'last_modified', 'size'])
+
+
 class StorageBackend:
     name = None
 

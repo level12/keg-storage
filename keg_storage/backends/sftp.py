@@ -1,11 +1,14 @@
 import contextlib
 import logging
 
+import arrow
 from keg_elements import crypto
 from paramiko import SSHClient
 
-from .base import StorageBackend
-
+from .base import (
+    StorageBackend,
+    ListEntry,
+)
 
 log = logging.getLogger(__name__)
 
@@ -25,7 +28,7 @@ class BatchSFTPStorage(StorageBackend):
         self.crypto_key = crypto_key
 
     def list(self, path):
-        return self.sftp_client.listdir(path)
+        return self.sftp_client.listdir_attr(path)
 
     def _get_encrypted(self, path, dest):
         chunk_size = 10 * 1024 * 1024
@@ -89,7 +92,14 @@ class SFTPStorage(StorageBackend):
 
     def list(self, path):
         with self.batch() as conn:
-            return conn.list(path)
+            return [
+                ListEntry(
+                    name=x.filename,
+                    last_modified=arrow.get(x.st_mtime),
+                    size=x.st_size
+                )
+                for x in conn.list(path)
+            ]
 
     def get(self, path, dest):
         with self.batch() as conn:

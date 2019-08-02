@@ -1,11 +1,14 @@
 import io
 from collections import namedtuple
 
+import arrow
+from blazeutils.containers import LazyDict
 from keg_elements import crypto
 import mock
 import wrapt
 
 import keg_storage
+from keg_storage.backends.base import ListEntry
 
 
 def sftp_mocked(**kwargs):
@@ -40,9 +43,17 @@ class TestSFTPStorage:
 
         @sftp_mocked()
         def run_test(sftp, m_sftp, m_log):
-            files = ['a.txt', 'b.pdf', 'more.txt']
-            m_sftp.listdir.return_value = files
-            assert sftp.list('.') == files
+            files = [
+                LazyDict(filename='a.txt', st_mtime=1564771623, st_size=128),
+                LazyDict(filename='b.pdf', st_mtime=1564771638, st_size=32768),
+                LazyDict(filename='more.txt', st_mtime=1564771647, st_size=100)
+            ]
+            m_sftp.listdir_attr.return_value = files
+            assert sftp.list('.') == [
+                ListEntry(name='a.txt', last_modified=arrow.get(1564771623), size=128),
+                ListEntry(name='b.pdf', last_modified=arrow.get(1564771638), size=32768),
+                ListEntry(name='more.txt', last_modified=arrow.get(1564771647), size=100),
+            ]
             assert m_log.info.mock_calls == []
 
         run_test()

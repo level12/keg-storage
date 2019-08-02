@@ -30,7 +30,7 @@ class TestList(CLIBase):
 
     def test_list(self, m_get_interface):
         m_list = mock.MagicMock(
-            return_value=[LazyDict(last_modified=date(2017, 4, 1), key='foo/bar', size=1024 * 3)]
+            return_value=[LazyDict(last_modified=date(2017, 4, 1), name='foo/bar', size=1024 * 3)]
         )
         m_get_interface.return_value.list = m_list
 
@@ -40,7 +40,7 @@ class TestList(CLIBase):
 
     def test_list_simple(self, m_get_interface):
         m_list = mock.MagicMock(
-            return_value=[LazyDict(last_modified=date(2017, 4, 1), key='foo/bar', size=1024 * 3)]
+            return_value=[LazyDict(last_modified=date(2017, 4, 1), name='foo/bar', size=1024 * 3)]
         )
         m_get_interface.return_value.list = m_list
 
