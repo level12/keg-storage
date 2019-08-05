@@ -1,6 +1,14 @@
 Changelog
 =========
 
+0.3.1 released 2019-08-05
+-------------------------
+
+- bug: Make the return type of the list command consistent across backends (53abcda_)
+
+.. _53abcda: https://github.com/level12/keg-storage/commit/53abcda
+
+
 0.3.0 released 2019-06-02
 -------------------------
 
