@@ -1,8 +1,13 @@
+import arrow
 import botocore
 import boto3
 import boto3.s3.transfer
 
-from .base import StorageBackend, FileNotFoundInStorageError
+from .base import (
+    StorageBackend,
+    FileNotFoundInStorageError,
+    ListEntry,
+)
 
 
 class S3Storage(StorageBackend):
@@ -27,7 +32,10 @@ class S3Storage(StorageBackend):
                                      region_name=region)
 
     def list(self, path):
-        return [x.key for x in self.bucket.objects.filter(Prefix=path).all()]
+        return [
+            ListEntry(name=x.key, last_modified=arrow.get(x.last_modified), size=x.size)
+            for x in self.bucket.objects.filter(Prefix=path).all()
+        ]
 
     def get(self, path, dest):
         try:

@@ -47,10 +47,10 @@ def storage_list(ctx, path, simple):
     objs = ctx.obj.data['storage'].list(path)
 
     def fmt(item):
-        fmt_str = '{key}' if simple else '{date}\t{size}\t{key}'
+        fmt_str = '{name}' if simple else '{date}\t{size}\t{name}'
         keys = {
             'date': humanize.naturaldate(item.last_modified),
-            'key': item.key,
+            'name': item.name,
             'size': humanize.naturalsize(item.size, gnu=True),
         }
         return fmt_str.format(**keys)
