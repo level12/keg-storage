@@ -22,11 +22,8 @@ class DefaultProfile(object):
             'username': 'john.doe',
             'key_filename': '/key/path',
             'known_hosts_fpath': '/known/hosts/path',
-            'local_base_dpath': '',
-            'remote_base_dpath': '',
             'allow_agent': False,
             'look_for_keys': False,
-            'crypto_key': 'encryption-key'
         })
     ]
     # KEG_STORAGE_DEFAULT_LOCATION = 'storage.s3'
