@@ -12,7 +12,6 @@ with open(osp.join(cdir, 'keg_storage', 'version.py')) as version_fp:
 
 setup(
     name="KegStorage",
-    setup_requires=['setuptools_scm'],
     description="A simple storage interface with multiple backends for use in a Keg_ app.",
     long_description='\n\n'.join((README, CHANGELOG)),
     author="Level 12 Developers",
@@ -22,9 +21,9 @@ setup(
         'Intended Audience :: Developers',
         'License :: OSI Approved :: BSD License',
         'Operating System :: OS Independent',
-        'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
     ],
     license='BSD',
     packages=find_packages(),
