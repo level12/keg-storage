@@ -18,7 +18,7 @@ class FakeRemoteFile(RemoteFile):
 
     def __init__(self, path, mode):
         super().__init__(mode)
-        self.file = open(path, f'{self.mode}b')
+        self.file = open(path, str(self.mode))
 
     def read(self, size):
         return self.file.read(size)
@@ -181,3 +181,10 @@ class TestFileNotFoundException:
             test_func()
         assert exc_info.value.filename == 'foo'
         assert exc_info.value.message == 'Not found in FakeBackend.'
+
+
+class TestFileMode:
+    def test_str(self):
+        assert str(FileMode.read) == 'rb'
+        assert str(FileMode.write) == 'wb'
+        assert str(FileMode.read | FileMode.write) == 'rwb'

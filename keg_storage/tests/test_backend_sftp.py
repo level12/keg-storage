@@ -80,7 +80,7 @@ class TestSFTPStorage:
         assert file.path == '/tmp/foo.txt'
         assert file.sftp is m_sftp
 
-        m_sftp.open.assert_called_once_with('/tmp/foo.txt', 'r')
+        m_sftp.open.assert_called_once_with('/tmp/foo.txt', 'rb')
 
     @sftp_mocked()
     def test_read_operations(self, sftp, m_sftp, m_log):

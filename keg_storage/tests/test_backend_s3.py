@@ -17,8 +17,8 @@ from keg_storage.backends.base import (
 @mock.patch('keg_storage.backends.s3.boto3', autospec=True, spec_set=True)
 class TestS3Storage:
     def test_init_sets_up_correctly(self, m_boto):
-        s3 = backends.S3Storage('bucket', aws_access_key_id='key', aws_secret_access_key='secret',
-                                name='test')
+        s3 = backends.S3Storage('bucket', aws_region='us-east-1', aws_access_key_id='key',
+                                aws_secret_access_key='secret', name='test')
         assert s3.name == 'test'
         assert s3.bucket == 'bucket'
 
@@ -30,7 +30,7 @@ class TestS3Storage:
         )
 
     def test_list(self, m_boto):
-        s3 = backends.S3Storage('bucket')
+        s3 = backends.S3Storage('bucket', aws_region='us-east-1')
         s3.client.list_objects_v2.return_value = {
             'IsTruncated': False,
             'Contents': [
@@ -68,7 +68,7 @@ class TestS3Storage:
         ]
 
     def test_list_pagenated(self, m_boto):
-        s3 = backends.S3Storage('bucket')
+        s3 = backends.S3Storage('bucket', aws_region='us-east-1')
 
         s3.client.list_objects_v2.side_effect = [
             {
@@ -143,7 +143,7 @@ class TestS3Storage:
         ]
 
     def test_delete(self, m_boto):
-        s3 = backends.S3Storage('bucket')
+        s3 = backends.S3Storage('bucket', aws_region='us-east-1')
 
         s3.delete('foo/bar')
 
@@ -153,20 +153,20 @@ class TestS3Storage:
         )
 
     def test_open_read(self, m_boto):
-        s3 = backends.S3Storage('bucket')
+        s3 = backends.S3Storage('bucket', aws_region='us-east-1')
 
         result = s3.open('foo/bar', FileMode.read)
         assert isinstance(result, backends.s3.S3Reader)
         s3.client.get_object.assert_called_once_with(Bucket='bucket', Key='foo/bar')
 
     def test_open_write(self, m_boto):
-        s3 = backends.S3Storage('bucket')
+        s3 = backends.S3Storage('bucket', aws_region='us-east-1')
 
         result = s3.open('foo/bar', FileMode.write)
         assert isinstance(result, backends.s3.S3Writer)
 
     def test_open_read_write(self, m_boto):
-        s3 = backends.S3Storage('bucket')
+        s3 = backends.S3Storage('bucket', aws_region='us-east-1')
         with pytest.raises(NotImplementedError) as exc:
             s3.open('foo/bar', FileMode.read | FileMode.write)
         assert str(exc.value) == 'Read+write mode not supported by the S3 backend'
@@ -180,7 +180,7 @@ class TestS3Storage:
         assert str(exc.value) == 'Unsupported mode'
 
     def test_read_operations(self, m_boto):
-        s3 = backends.S3Storage('bucket')
+        s3 = backends.S3Storage('bucket', aws_region='us-east-1')
         body_obj = io.BytesIO(b'a' * 100)
         s3.client.get_object.return_value = {
             'Body': body_obj
@@ -196,7 +196,7 @@ class TestS3Storage:
         assert fp.reader.closed is True
 
     def test_read_not_found(self, m_boto):
-        s3 = backends.S3Storage('bucket')
+        s3 = backends.S3Storage('bucket', aws_region='us-east-1')
         s3.client.get_object.side_effect = ClientError({'Error': {'Code': 'NoSuchKey'}}, 'foo')
 
         with pytest.raises(FileNotFoundInStorageError) as exc:
