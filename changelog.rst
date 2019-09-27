@@ -1,6 +1,14 @@
 Changelog
 =========
 
+0.4.0 released 2019-09-27
+-------------------------
+
+- feat: Update interface to allow file-like access (7c2a1b7_)
+
+.. _7c2a1b7: https://github.com/level12/keg-storage/commit/7c2a1b7
+
+
 0.3.1 released 2019-08-05
 -------------------------
 
