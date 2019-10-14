@@ -19,6 +19,20 @@ class FileMode(enum.Flag):
         s += 'w' if self & FileMode.write else ''
         return f'{s}b'
 
+    @classmethod
+    def as_mode(cls, obj):
+        if isinstance(obj, cls):
+            return obj
+        if not isinstance(obj, str):
+            raise ValueError('as_mode() accepts only FileMode or str arguments')
+
+        mode = cls(0)
+        if 'r' in obj:
+            mode |= cls.read
+        if 'w' in obj:
+            mode |= cls.write
+        return mode
+
 
 class RemoteFile:
     """
@@ -98,7 +112,7 @@ class StorageBackend:
         """
         raise NotImplementedError()
 
-    def open(self, path: str, mode: FileMode) -> RemoteFile:
+    def open(self, path: str, mode: typing.Union[FileMode, str]) -> RemoteFile:
         """
         Returns a instance of RemoteFile for the given `path` that can be used for
         reading and/or writing depending on the `mode` given.

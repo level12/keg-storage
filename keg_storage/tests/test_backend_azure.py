@@ -1,3 +1,4 @@
+import base64
 import datetime
 import string
 from io import BytesIO
@@ -67,14 +68,12 @@ class TestAzureStorage:
         assert str(exc.value) == 'Read+write mode not supported by the Azure backend'
 
     def test_open_bad_mode(self, m_service):
-        class FakeFileMode:
-            def __and__(self, other):
-                return False
-
         storage = self.create_storage()
         with pytest.raises(ValueError) as exc:
-            storage.open('foo', FakeFileMode())
-        assert str(exc.value) == 'Unsupported mode'
+            storage.open('foo', base.FileMode(0))
+        assert (
+            str(exc.value) == 'Unsupported mode. Accepted modes are FileMode.read or FileMode.write'
+        )
 
     def test_read_operations(self, m_service):
         storage = self.create_storage()
@@ -145,65 +144,97 @@ class TestAzureStorage:
                 end_range=69,
             )
 
-    def test_write_operations(self, m_service):
+    @mock.patch('keg_storage.backends.azure.os.urandom', autospec=True, spec_set=True)
+    def test_write_operations(self, m_urandom, m_service):
         storage = self.create_storage()
 
+        m_urandom.side_effect = lambda x: b'\x00' * x
+
+        block_data = {}
         blob = BytesIO()
 
-        m_create = m_service.return_value.create_blob
-        m_create.return_value = BlobProperties()
+        def mock_put_block(**kwargs):
+            block_id = kwargs['block_id']
+            assert block_id not in block_data
+            block_data[block_id] = kwargs['block']
 
-        m_append = m_service.return_value.append_block
-        m_append.side_effect = lambda **kwargs: blob.write(kwargs['block'])
+        def mock_put_list(**kwargs):
+            blocks = kwargs['block_list']
+            for b in blocks:
+                blob.write(block_data[b.id])
+
+        m_put_block = m_service.return_value.put_block
+        m_put_block.side_effect = mock_put_block
+
+        m_put_list = m_service.return_value.put_block_list
+        m_put_list.side_effect = mock_put_list
+
+        def block_id(index_bytes):
+            return base64.b64encode(index_bytes + bytes([0] * 40)).decode()
 
         with storage.open('foo', base.FileMode.write, buffer_size=10) as f:
             f.write(b'ab')
-            m_create.assert_not_called()
-            m_append.assert_not_called()
+            m_put_block.assert_not_called()
+            m_put_list.assert_not_called()
             assert blob.getvalue() == b''
+            assert block_data == {}
 
             f.write(b'cdefghijklm')
-            m_create.assert_called_once_with(container_name='test', blob_name='foo')
-            m_create.reset_mock()
-            m_append.assert_called_once_with(
+            m_put_block.assert_called_once_with(
                 container_name='test',
                 blob_name='foo',
-                block=b'abcdefghij'
+                block=b'abcdefghij',
+                block_id=block_id(b'\x00\x00\x00\x00\x00\x00\x00\x00')
             )
-            assert blob.getvalue() == b'abcdefghij'
+            m_put_list.assert_not_called()
+            assert blob.getvalue() == b''
+            assert set(block_data.values()) == {b'abcdefghij'}
 
             f.write(b'nopqrstuvwxyz')
-            m_create.assert_not_called()
-            m_append.assert_called_with(
+            m_put_block.assert_called_with(
                 container_name='test',
                 blob_name='foo',
-                block=b'klmnopqrst'
+                block=b'klmnopqrst',
+                block_id=block_id(b'\x00\x00\x00\x00\x00\x00\x00\x01')
             )
-            m_append.reset_mock()
-            assert blob.getvalue() == b'abcdefghijklmnopqrst'
+            m_put_block.reset_mock()
+            m_put_list.assert_not_called()
+            assert blob.getvalue() == b''
+            assert set(block_data.values()) == {b'abcdefghij', b'klmnopqrst'}
 
             f.write(b'12')
-            m_create.assert_not_called()
-            m_append.assert_not_called()
-            assert blob.getvalue() == b'abcdefghijklmnopqrst'
+            m_put_block.assert_not_called()
+            m_put_list.assert_not_called()
+            assert blob.getvalue() == b''
+            assert set(block_data.values()) == {b'abcdefghij', b'klmnopqrst'}
 
-        m_append.assert_called_with(
+        m_put_block.assert_called_with(
             container_name='test',
             blob_name='foo',
-            block=b'uvwxyz12'
+            block=b'uvwxyz12',
+            block_id=block_id(b'\x00\x00\x00\x00\x00\x00\x00\x02')
         )
+        m_put_list.assert_called_once()
+        _, kwargs = m_put_list.call_args
+        assert kwargs['container_name'] == 'test'
+        assert kwargs['blob_name'] == 'foo'
+        assert [b.id for b in kwargs['block_list']] == [
+            block_id(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
+            block_id(b'\x00\x00\x00\x00\x00\x00\x00\x01'),
+            block_id(b'\x00\x00\x00\x00\x00\x00\x00\x02')
+        ]
         assert blob.getvalue() == b'abcdefghijklmnopqrstuvwxyz12'
 
     def test_write_nothing(self, m_service):
         storage = self.create_storage()
-        m_create = m_service.return_value.create_blob
-        m_append = m_service.return_value.append_block
+        m_put_block = m_service.return_value.put_block
+        m_put_list = m_service.return_value.put_block_list
 
         f = storage.open('foo', base.FileMode.write)
         f.close()
 
-        m_create.assert_not_called()
-        m_append.assert_not_called()
+        m_put_block.assert_not_called()
+        m_put_list.assert_not_called()
 
     def test_delete(self, m_service):
         storage = self.create_storage()

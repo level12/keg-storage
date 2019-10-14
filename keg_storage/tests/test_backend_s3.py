@@ -171,13 +171,11 @@ class TestS3Storage:
             s3.open('foo/bar', FileMode.read | FileMode.write)
         assert str(exc.value) == 'Read+write mode not supported by the S3 backend'
 
-        class FakeFileMode:
-            def __and__(self, other):
-                return False
-
         with pytest.raises(ValueError) as exc:
-            s3.open('foo/bar', FakeFileMode())
-        assert str(exc.value) == 'Unsupported mode'
+            s3.open('foo/bar', FileMode(0))
+        assert (
+            str(exc.value) == 'Unsupported mode. Accepted modes are FileMode.read or FileMode.write'
+        )
 
     def test_read_operations(self, m_boto):
         s3 = backends.S3Storage('bucket', aws_region='us-east-1')

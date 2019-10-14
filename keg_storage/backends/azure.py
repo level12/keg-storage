@@ -1,9 +1,12 @@
+import base64
+import os
 import typing
 
 import arrow
 from azure.storage.blob import (
-    AppendBlobService,
+    BlockBlobService,
     BlobPrefix,
+    BlobBlock,
 )
 
 from keg_storage.backends import base
@@ -16,7 +19,7 @@ class AzureFile(base.RemoteFile):
     opened for reading and writing.
     """
     def __init__(self, container_name: str, path: str, mode: base.FileMode,
-                 service: AppendBlobService, chunk_size: int = 10 * 1024 * 1024):
+                 service: BlockBlobService, chunk_size: int = 10 * 1024 * 1024):
         """
         :param container_name: container / bucket name
         :param path: blob name
@@ -36,47 +39,63 @@ class AzureFile(base.RemoteFile):
 
 class AzureWriter(AzureFile):
     """
-    For Azure, we are using Append Blobs for efficiency since we always write serially. The general
-    process is to create an empty blob and then append blocks to it. Unlike S3 there are no
-    additional calls needed to combine the blocks.
+    We are using Azure Block Blobs for all operations. The process for writing them is substantially
+    similar to that of S3 with a couple of differences.
+        1. We generate the IDs for the blocks
+        2. There is no separate call to instantiate the upload. The first call to put_block will
+           create the blob.
     """
     def __init__(self, container_name: str, path: str, mode: base.FileMode,
-                 service: AppendBlobService, chunk_size: int = AppendBlobService.MAX_BLOCK_SIZE):
+                 service: BlockBlobService, chunk_size: int = BlockBlobService.MAX_BLOCK_SIZE):
         super().__init__(
             container_name=container_name,
             path=path,
             mode=mode,
             service=service,
             # chunk_size cannot be larger than MAX_BLOCK_SIZE due to API restrictions
-            chunk_size=min(chunk_size, AppendBlobService.MAX_BLOCK_SIZE),
+            chunk_size=min(chunk_size, BlockBlobService.MAX_BLOCK_SIZE),
         )
-        self.blob_props = None
+        self.blocks = []
 
-    def _create_blob(self):
-        # Create the blob lazily in case nothing ends up being written
-        self.blob_props = self.service.create_blob(
-            container_name=self.container_name,
-            blob_name=self.path,
-        )
+    def _gen_block_id(self) -> str:
+        """
+        Generate a unique ID for the block. This is meant to be opaque but it is generated from:
+            1. The index of the block as an 64 bit unsigned big endian integer
+            2. 40 bytes of random data
+        The two parts are concatenated and base64 encoded giving us 64 bytes which is the maximum
+        Azure allows.
+        """
+        index_part = len(self.blocks).to_bytes(8, byteorder='big', signed=False)
+        random_part = os.urandom(40)
+        return base64.b64encode(index_part + random_part).decode()
 
     def _flush(self):
         if len(self.buffer) == 0:
             # If there is no buffered data, we don't need to do anything
             return
 
-        if self.blob_props is None:
-            # Create the blob if we haven't already
-            self._create_blob()
-
-        # Upload at most chunk_size bytes to the blob
-        self.service.append_block(
+        # Upload at most chunk_size bytes to a new block
+        block_id = self._gen_block_id()
+        self.service.put_block(
             container_name=self.container_name,
             blob_name=self.path,
             block=bytes(self.buffer[:self.chunk_size]),
+            block_id=block_id
         )
+
+        # Store the block_id to later concatenate when we close this file
+        self.blocks.append(BlobBlock(id=block_id))
 
         # Cycle the buffer
         self.buffer = self.buffer[self.chunk_size:]
+
+    def _finalize(self):
+        self.service.put_block_list(
+            container_name=self.container_name,
+            blob_name=self.path,
+            block_list=self.blocks
+        )
+        self.blocks = []
 
     def write(self, data: bytes) -> None:
         self.buffer.extend(data)
@@ -87,6 +106,9 @@ class AzureWriter(AzureFile):
 
     def close(self):
         self._flush()
+        if self.blocks:
+            # If we haven't created any blocks, we don't need to finalize
+            self._finalize()
 
 
 class AzureReader(AzureFile):
@@ -95,7 +117,7 @@ class AzureReader(AzureFile):
     for small read sizes.
     """
     def __init__(self, container_name: str, path: str, mode: base.FileMode,
-                 service: AppendBlobService, chunk_size=10 * 1024 * 1024):
+                 service: BlockBlobService, chunk_size=10 * 1024 * 1024):
         super().__init__(
             container_name=container_name,
             path=path,
@@ -173,7 +195,7 @@ class AzureStorage(base.StorageBackend):
         self.bucket = bucket
 
     def _create_service(self):
-        return AppendBlobService(
+        return BlockBlobService(
             account_name=self.account,
             account_key=self.key,
         )
@@ -195,7 +217,10 @@ class AzureStorage(base.StorageBackend):
 
         return [construct_entry(blob) for blob in list_iter]
 
-    def open(self, path: str, mode: base.FileMode, buffer_size: int = 10 * 1024 * 1024) -> AzureFile:  # noqa
+    def open(self, path: str, mode: typing.Union[base.FileMode, str],
+             buffer_size: int = 10 * 1024 * 1024) -> AzureFile:  # noqa
+        mode = base.FileMode.as_mode(mode)
+
         if (mode & base.FileMode.read) and (mode & base.FileMode.write):
             raise NotImplementedError('Read+write mode not supported by the Azure backend')
         elif mode & base.FileMode.write:
@@ -215,7 +240,7 @@ class AzureStorage(base.StorageBackend):
                 chunk_size=buffer_size
             )
         else:
-            raise ValueError('Unsupported mode')
+            raise ValueError('Unsupported mode. Accepted modes are FileMode.read or FileMode.write')
 
     def delete(self, path: str):
         service = self._create_service()
