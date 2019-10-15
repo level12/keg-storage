@@ -2,7 +2,11 @@ import logging
 import tempfile
 
 from blazeutils.helpers import ensure_list
-import keg_elements.crypto as ke_crypto
+
+try:
+    import keg_elements.crypto as ke_crypto
+except ImportError:
+    ke_crypto = None
 
 DEFAULT_KEY_SIZE = 32
 
@@ -17,11 +21,18 @@ class EncryptionKeyException(Exception):
     pass
 
 
+class MissingDependencyException(Exception):
+    pass
+
+
 def verify_key_length(key, expected=DEFAULT_KEY_SIZE):
     return len(key) == expected
 
 
 def reencrypt(storage, path, old_key, new_key):
+    if ke_crypto is None:
+        raise MissingDependencyException('Keg Elements is required for crypto operations')
+
     old_key = ensure_list(old_key)
 
     # We append the new key just in case the operation was restarted and we have already encrypted
