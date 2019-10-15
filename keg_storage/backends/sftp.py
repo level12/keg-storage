@@ -1,5 +1,6 @@
 import contextlib
 import logging
+import typing
 
 import arrow
 from paramiko import SSHClient
@@ -93,7 +94,9 @@ class SFTPStorage(StorageBackend):
                 for x in conn.listdir_attr(path)
             ]
 
-    def open(self, path: str, mode: FileMode):
+    def open(self, path: str, mode: typing.Union[FileMode, str]):
+        mode = FileMode.as_mode(mode)
+
         # SFTPRemoteFile is responsible for closing the client connection
         client = self.create_client()
         return SFTPRemoteFile(mode, path, client)

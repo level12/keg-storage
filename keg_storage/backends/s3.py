@@ -1,3 +1,5 @@
+import typing
+
 import arrow
 import boto3
 from botocore.exceptions import ClientError
@@ -232,7 +234,9 @@ class S3Storage(StorageBackend):
     def _create_writer(self, path):
         return S3Writer(self.bucket, path, self.client)
 
-    def open(self, path: str, mode: FileMode):
+    def open(self, path: str, mode: typing.Union[FileMode, str]):
+        mode = FileMode.as_mode(mode)
+
         if mode & FileMode.read and mode & FileMode.write:
             raise NotImplementedError('Read+write mode not supported by the S3 backend')
         elif mode & FileMode.read:
@@ -240,7 +244,7 @@ class S3Storage(StorageBackend):
         elif mode & FileMode.write:
             return self._create_writer(path)
         else:
-            raise ValueError('Unsupported mode')
+            raise ValueError('Unsupported mode. Accepted modes are FileMode.read or FileMode.write')
 
     def delete(self, path):
         self.client.delete_object(

@@ -40,7 +40,11 @@ setup(
         'sftp': [
             'paramiko',
         ],
+        'azure': [
+            'azure',
+        ],
         'test': [
+            'azure',
             'paramiko',
             'tox',
             'pytest',

@@ -188,3 +188,16 @@ class TestFileMode:
         assert str(FileMode.read) == 'rb'
         assert str(FileMode.write) == 'wb'
         assert str(FileMode.read | FileMode.write) == 'rwb'
+
+    def test_as_mode(self):
+        assert FileMode.as_mode(FileMode.read) == FileMode.read
+
+        assert FileMode.as_mode('r') == FileMode.read
+        assert FileMode.as_mode('w') == FileMode.write
+        assert FileMode.as_mode('rw') == FileMode.read | FileMode.write
+        assert FileMode.as_mode('wr') == FileMode.read | FileMode.write
+        assert FileMode.as_mode('rb') == FileMode.read
+
+        with pytest.raises(ValueError) as exc:
+            FileMode.as_mode(1)
+        assert str(exc.value) == 'as_mode() accepts only FileMode or str arguments'
