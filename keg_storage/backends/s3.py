@@ -112,11 +112,6 @@ class S3Writer(S3FileBase):
         """
         Recombine all the uploaded parts into a single S3 object.
         """
-
-        # Ensure any locally buffered data is uploaded to a part
-        while len(self.buffer):
-            self._flush_buffer()
-
         # If no data was uploaded, we don't need to do anything else
         if not self.part_ids:
             return
@@ -145,6 +140,10 @@ class S3Writer(S3FileBase):
         self.multipart_id = None
 
     def close(self):
+        # Ensure any locally buffered data is uploaded to a part
+        while len(self.buffer):
+            self._flush_buffer()
+
         # If the multipart upload was initialized, finalize it.
         if self.multipart_id is not None:
             self._finalize_multipart()
@@ -153,6 +152,7 @@ class S3Writer(S3FileBase):
         """
         Use if for some reason you want to discard all the data written and not create an S3 object
         """
+        self.buffer.clear()
         if self.multipart_id is None:
             # If the multipart upload was never initialized, do nothing
             return
