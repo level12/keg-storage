@@ -302,3 +302,14 @@ class TestS3Storage:
             Key='foo/bar',
             UploadId='upload-id'
         )
+
+    def test_write_flushes(self, m_boto):
+        m_client = mock.MagicMock()
+        m_client.create_multipart_upload.return_value = {'UploadId': 'upload-id'}
+        m_client.upload_part.return_value = {'ETag': 'etag-0'}
+
+        with backends.s3.S3Writer('bucket', 'foo/bar', m_client, chunk_size=100) as fp:
+            fp.write(b'a' * 99)
+        m_client.create_multipart_upload.assert_called()
+        m_client.upload_part.assert_called()
+        m_client.complete_multipart_upload.assert_called()
