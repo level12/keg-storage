@@ -1,6 +1,18 @@
 Changelog
 =========
 
+0.4.1 released 2019-10-17
+-------------------------
+
+- feat: Make keg dependency optional and improve backend optional dependency handling (e33139a_)
+- bug: Fix bug where small files written to S3 buckets were never flushed (bd6c2c0_)
+- feat: Add support for Azure blob storage (4141319_)
+
+.. _e33139a: https://github.com/level12/keg-storage/commit/e33139a
+.. _bd6c2c0: https://github.com/level12/keg-storage/commit/bd6c2c0
+.. _4141319: https://github.com/level12/keg-storage/commit/4141319
+
+
 0.4.0 released 2019-09-27
 -------------------------
 
