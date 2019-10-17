@@ -2,13 +2,18 @@ import io
 
 import pytest
 from mock import mock
-import keg_elements.crypto as ke_crypto
+
+try:
+    import keg_elements.crypto as ke_crypto
+except ImportError:
+    ke_crypto = None
 
 from keg_storage import utils
 
 DEFAULT_PLAINTEXT = b'data' * 1024 * 1024
 
 
+@pytest.mark.skipif(ke_crypto is None, reason='Only run with keg elements installed')
 class TestReencrypt:
     def mock_storage(self, old_ciphertext, new_ciphertext):
         m_storage = mock.MagicMock()
@@ -81,3 +86,10 @@ class TestReencrypt:
 
         with pytest.raises(utils.DecryptionException):
             utils.reencrypt(store, 'file', k1, k3)
+
+
+@pytest.mark.skipif(ke_crypto is not None, reason='Only run with keg elements not installed')
+def test_reencrypt():
+    with pytest.raises(utils.MissingDependencyException) as exc:
+        utils.reencrypt(None, '', '', '')
+    assert str(exc.value) == 'Keg Elements is required for crypto operations'

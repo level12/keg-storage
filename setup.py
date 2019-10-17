@@ -30,9 +30,9 @@ setup(
     zip_safe=True,
     version=version['VERSION'],
     install_requires=[
+        'arrow',
         'boto3',
         'botocore',
-        'kegelements',
         'humanize',
         'BlazeUtils',
     ],
@@ -42,6 +42,9 @@ setup(
         ],
         'azure': [
             'azure',
+        ],
+        'keg': [
+            'kegelements',
         ],
         'test': [
             'azure',
