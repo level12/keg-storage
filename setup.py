@@ -56,6 +56,6 @@ setup(
             'mock',
             'flake8',
             'flask_webtest',
-        ],
+        ]
     }
 )

@@ -1,3 +1,4 @@
+from keg_storage.version import __version__  # noqa
 from importlib.util import find_spec as _find_spec
 
 if _find_spec('keg'):

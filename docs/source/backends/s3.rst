@@ -1,0 +1,15 @@
+S3 Backend
+==========
+
+.. autoclass:: keg_storage.backends.s3.S3Storage
+    :members:
+
+
+.. autoclass:: keg_storage.backends.s3.S3Reader
+    :members:
+
+.. autoclass:: keg_storage.backends.s3.S3Writer
+    :members:
+
+.. autoclass:: keg_storage.backends.s3.S3FileBase
+    :members:
