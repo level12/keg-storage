@@ -1,6 +1,14 @@
 Changelog
 =========
 
+0.4.2 released 2019-11-29
+-------------------------
+
+- Stricter Azure Dependencies (adea745_)
+
+.. _adea745: https://github.com/level12/keg-storage/commit/adea745
+
+
 0.4.1 released 2019-10-17
 -------------------------
 
