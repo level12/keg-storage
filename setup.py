@@ -41,13 +41,13 @@ setup(
             'paramiko',
         ],
         'azure': [
-            'azure-storage-blob~=1.3.0',
+            'azure-storage-blob',
         ],
         'keg': [
             'kegelements',
         ],
         'test': [
-            'azure-storage-blob~=1.3.0',
+            'azure-storage-blob',
             'paramiko',
             'tox',
             'pytest',

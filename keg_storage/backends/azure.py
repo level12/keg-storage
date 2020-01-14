@@ -1,13 +1,17 @@
 import base64
 import os
 import typing
+import urllib.parse
+from datetime import datetime
 
 import arrow
 from azure.storage.blob import (
-    BlockBlobService,
-    BlobPrefix,
+    BlobServiceClient,
     BlobBlock,
+    ContainerClient,
+    generate_blob_sas,
 )
+from azure.storage.blob._models import BlobPrefix
 
 from keg_storage.backends import base
 
@@ -18,20 +22,18 @@ class AzureFile(base.RemoteFile):
     integrating the two would introduce a lot of complexity there are distinct subclasses for files
     opened for reading and writing.
     """
-    def __init__(self, container_name: str, path: str, mode: base.FileMode,
-                 service: BlockBlobService, chunk_size: int = 10 * 1024 * 1024):
+    def __init__(self, path: str, mode: base.FileMode, container_client: ContainerClient,
+                 chunk_size: int = 10 * 1024 * 1024):
         """
-        :param container_name: container / bucket name
         :param path: blob name
         :param mode: file mode
-        :param service: blob service instance to use for API calls
+        :param container_client: container client instance to use for API calls
         :param chunk_size: read/write buffer size
         """
         super().__init__(mode)
         self.chunk_size = chunk_size
-        self.container_name = container_name
         self.path = path
-        self.service = service
+        self.client = container_client.get_blob_client(self.path)
 
         # Local buffer to reduce number of requests
         self.buffer = bytearray()
@@ -45,15 +47,17 @@ class AzureWriter(AzureFile):
         2. There is no separate call to instantiate the upload. The first call to put_block will
            create the blob.
     """
-    def __init__(self, container_name: str, path: str, mode: base.FileMode,
-                 service: BlockBlobService, chunk_size: int = BlockBlobService.MAX_BLOCK_SIZE):
+    def __init__(self, path: str, mode: base.FileMode, container_client: ContainerClient,
+                 chunk_size: int = None):
+        max_block_size = 100 * 1024 * 1024
+        if chunk_size is not None:
+            # chunk_size cannot be larger than max_block_size due to API restrictions
+            chunk_size = min(chunk_size, max_block_size)
         super().__init__(
-            container_name=container_name,
             path=path,
             mode=mode,
-            service=service,
-            # chunk_size cannot be larger than MAX_BLOCK_SIZE due to API restrictions
-            chunk_size=min(chunk_size, BlockBlobService.MAX_BLOCK_SIZE),
+            container_client=container_client,
+            chunk_size=chunk_size,
         )
         self.blocks = []
 
@@ -76,25 +80,16 @@ class AzureWriter(AzureFile):
 
         # Upload at most chunk_size bytes to a new block
         block_id = self._gen_block_id()
-        self.service.put_block(
-            container_name=self.container_name,
-            blob_name=self.path,
-            block=bytes(self.buffer[:self.chunk_size]),
-            block_id=block_id
-        )
+        self.client.stage_block(block_id=block_id, data=bytes(self.buffer[:self.chunk_size]))
 
         # Store the block_id to later concatenate when we close this file
-        self.blocks.append(BlobBlock(id=block_id))
+        self.blocks.append(BlobBlock(block_id=block_id))
 
         # Cycle the buffer
         self.buffer = self.buffer[self.chunk_size:]
 
     def _finalize(self):
-        self.service.put_block_list(
-            container_name=self.container_name,
-            blob_name=self.path,
-            block_list=self.blocks
-        )
+        self.client.commit_block_list(block_list=self.blocks)
         self.blocks = []
 
     def write(self, data: bytes) -> None:
@@ -116,47 +111,16 @@ class AzureReader(AzureFile):
     The Azure reader uses byte ranged API calls to fill a local buffer to avoid lots of API overhead
     for small read sizes.
     """
-    def __init__(self, container_name: str, path: str, mode: base.FileMode,
-                 service: BlockBlobService, chunk_size=10 * 1024 * 1024):
+    def __init__(self, path: str, mode: base.FileMode, container_client: ContainerClient,
+                 chunk_size=10 * 1024 * 1024):
         super().__init__(
-            container_name=container_name,
             path=path,
             mode=mode,
-            service=service,
+            container_client=container_client,
             chunk_size=chunk_size,
         )
-        # Get overall blob size to avoid out of bounds requests
-        self.blob_size = self._get_blob_size()
-
-        # Current offset for the next request to fill the local buffer
-        self.current_offset = 0
-
-        # Current read position in the blob including reads filled from the local buffer
-        self.read_position = 0
-
-    def _get_blob_size(self):
-        """
-        Retrieve the overall size of the blob
-        """
-        blob = self.service.get_blob_properties(
-            container_name=self.container_name,
-            blob_name=self.path
-        )
-        return blob.properties.content_length
-
-    def _refill_buffer(self):
-        """
-        Retrieve the next chunk and add it to the local buffer.
-        """
-        range_end = self.current_offset + self.chunk_size - 1  # -1 because range is inclusive
-        blob = self.service.get_blob_to_bytes(
-            container_name=self.container_name,
-            blob_name=self.path,
-            start_range=self.current_offset,
-            end_range=range_end,
-        )
-        self.current_offset += len(blob.content)
-        self.buffer.extend(blob.content)
+        self.stream = self.client.download_blob()
+        self.chunks = self.stream.chunks()
 
     def _read_from_buffer(self, max_size):
         """
@@ -165,23 +129,23 @@ class AzureReader(AzureFile):
         read_size = min(len(self.buffer), max_size)
         output = self.buffer[:read_size]
         self.buffer = self.buffer[read_size:]
-        self.read_position += len(output)
         return output
 
     def read(self, size: int) -> bytes:
         output_buf = bytes()
 
-        # Read up to the end of the file or `size` bytes whichever is less
-        read_size = min(self.blob_size - self.read_position, size)
-
-        while len(output_buf) < read_size:
+        while len(output_buf) < size:
             if len(self.buffer) == 0:
-                # Buffer is empty, refill it.
-                self._refill_buffer()
+                try:
+                    # Load the next chunk into the local buffer
+                    next_chunk = next(self.chunks)
+                    self.buffer.extend(next_chunk)
+                except StopIteration:
+                    # All chunks have been consumed
+                    break
 
-            remaining = read_size - len(output_buf)
-            read = self._read_from_buffer(remaining)
-            output_buf += read
+            read_remainder = size - len(output_buf)
+            output_buf += self._read_from_buffer(read_remainder)
 
         return output_buf
 
@@ -193,26 +157,36 @@ class AzureStorage(base.StorageBackend):
         self.account = account
         self.key = key
         self.bucket = bucket
+        self.account_url = 'https://{}.blob.core.windows.net'.format(self.account)
 
-    def _create_service(self):
-        return BlockBlobService(
-            account_name=self.account,
-            account_key=self.key,
+    def _create_service_client(self):
+        return BlobServiceClient(
+            account_url=self.account_url,
+            credential=self.key,
         )
 
+    def _create_container_client(self):
+        service_client = self._create_service_client()
+        return service_client.get_container_client(self.bucket)
+
+    def _clean_path(self, path: str):
+        return path.lstrip('/')
+
     def list(self, path: str) -> typing.List[base.ListEntry]:
-        service = self._create_service()
+        client = self._create_container_client()
+
         if not path.endswith('/'):
             path = path + '/'
-        list_iter = service.list_blobs(container_name=self.bucket, prefix=path, delimiter='/')
+        path = self._clean_path(path)
+        list_iter = client.walk_blobs(path)
 
         def construct_entry(blob):
             if isinstance(blob, BlobPrefix):
                 return base.ListEntry(name=blob.name, last_modified=None, size=0)
             return base.ListEntry(
                 name=blob.name,
-                last_modified=arrow.get(blob.properties.last_modified),
-                size=blob.properties.content_length,
+                last_modified=arrow.get(blob.last_modified),
+                size=blob.size,
             )
 
         return [construct_entry(blob) for blob in list_iter]
@@ -221,30 +195,77 @@ class AzureStorage(base.StorageBackend):
              buffer_size: int = 10 * 1024 * 1024) -> AzureFile:  # noqa
         mode = base.FileMode.as_mode(mode)
 
+        path = self._clean_path(path)
+
         if (mode & base.FileMode.read) and (mode & base.FileMode.write):
             raise NotImplementedError('Read+write mode not supported by the Azure backend')
         elif mode & base.FileMode.write:
             return AzureWriter(
-                container_name=self.bucket,
                 path=path,
                 mode=mode,
-                service=self._create_service(),
+                container_client=self._create_container_client(),
                 chunk_size=buffer_size
             )
         elif mode & base.FileMode.read:
             return AzureReader(
-                container_name=self.bucket,
                 path=path,
                 mode=mode,
-                service=self._create_service(),
+                container_client=self._create_container_client(),
                 chunk_size=buffer_size
             )
         else:
             raise ValueError('Unsupported mode. Accepted modes are FileMode.read or FileMode.write')
 
     def delete(self, path: str):
-        service = self._create_service()
-        service.delete_blob(
-            container_name=self.bucket,
-            blob_name=path
+        path = self._clean_path(path)
+        container_client = self._create_container_client()
+        container_client.delete_blob(path)
+
+    def create_upload_url(self, path: str, expire: typing.Union[arrow.Arrow, datetime],
+                          ip: typing.Optional[str] = None):
+        """
+        Create an SAS URL that can be used to upload a blob without any additional authentication.
+        This url can be used in following way to authenticate a client and upload to the
+        pre-specified path:
+
+            client = BlobClient.from_blob_url(url)
+            client.upload_blob(data)
+        """
+        return self._create_sas_url(
+            path=path,
+            sas_permissions='c',
+            expire=expire,
+            ip=ip,
         )
+
+    def create_download_url(self, path: str, expire: typing.Union[arrow.Arrow, datetime],
+                            ip: typing.Optional[str] = None):
+        """
+        Create an SAS URL that can be used to download a blob without any additional authentication.
+        This url may be accessed directly to download the blob:
+
+            requests.get(url)
+        """
+        return self._create_sas_url(
+            path=path,
+            sas_permissions='r',
+            expire=expire,
+            ip=ip,
+        )
+
+    def _create_sas_url(self, path: str, sas_permissions: str,
+                        expire: typing.Union[arrow.Arrow, datetime],
+                        ip: typing.Optional[str] = None):
+        path = self._clean_path(path)
+        expire = expire.datetime if isinstance(expire, arrow.Arrow) else expire
+        token = generate_blob_sas(
+            account_name=self.account,
+            container_name=self.bucket,
+            blob_name=path,
+            account_key=self.key,
+            permission=sas_permissions,
+            expiry=expire,
+            ip=ip
+        )
+        url = urllib.parse.urljoin(self.account_url, '{}/{}'.format(self.bucket, path))
+        return '{}?{}'.format(url, token)
