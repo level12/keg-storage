@@ -1,3 +1,7 @@
+import contextlib
+import io
+import os
+
 import click.testing
 from blazeutils.containers import LazyDict
 from datetime import date
@@ -11,15 +15,15 @@ from keg_storage import FileNotFoundInStorageError
 @mock.patch.object(current_app.storage, 'get_interface', autospec=True, spec_set=True)
 class TestCLI(CLIBase):
     def test_no_location(self, m_get_interface):
-        results = self.invoke('storage', 'get', 'foo/bar', exit_code=1)
+        results = self.invoke('storage', 'list', 'foo/bar', exit_code=1)
         assert results.output == 'No location given and no default was configured.\nAborted!\n'
 
-        self.invoke('storage', '--location', 'loc', 'get', 'foo/bar')
+        self.invoke('storage', '--location', 'loc', 'list', 'foo/bar')
         m_get_interface.assert_called_once_with('loc')
 
     def test_bad_location(self, m_get_interface):
         m_get_interface.side_effect = KeyError
-        results = self.invoke('storage', '--location', 'loc', 'get', 'foo/bar', exit_code=1)
+        results = self.invoke('storage', '--location', 'loc', 'list', 'foo/bar', exit_code=1)
         assert results.output == 'The location loc does not exist. ' \
             'Pass --location or change your configuration.\nAborted!\n'
 
@@ -49,30 +53,61 @@ class TestList(CLIBase):
         m_list.assert_called_once_with('/')
 
 
+@contextlib.contextmanager
+def change_dir(path):
+    cwd = os.getcwd()
+    os.chdir(path)
+    try:
+        yield path
+    finally:
+        os.chdir(cwd)
+
+
 @mock.patch.object(current_app.storage, 'get_interface', autospec=True, spec_set=True)
 class TestGet(CLIBase):
     cmd_name = 'storage --location loc get'
 
-    def test_get_default_dest(self, m_get_interface):
-        m_get = mock.MagicMock()
-        m_get_interface.return_value.get = m_get
+    def test_get_default_dest(self, m_get_interface, tmp_path):
+        m_download = mock.MagicMock()
+        m_get_interface.return_value.download = m_download
 
-        results = self.invoke('foo/bar')
+        with change_dir(tmp_path):
+            results = self.invoke('foo/bar')
+
         assert results.output == 'Downloaded foo/bar to bar.\n'
-        m_get.assert_called_once_with('foo/bar', 'bar')
 
-    def test_get_given_dest(self, m_get_interface):
-        m_get = mock.MagicMock()
-        m_get_interface.return_value.get = m_get
+        out_path = os.path.join(tmp_path, 'bar')
+        assert os.path.exists(out_path)
+        args, _ = m_download.call_args
+        assert args[0] == 'foo/bar'
+        assert args[1].name == 'bar'
 
-        results = self.invoke('foo/bar', 'dest/path')
-        assert results.output == 'Downloaded foo/bar to dest/path.\n'
-        m_get.assert_called_once_with('foo/bar', 'dest/path')
+    def test_get_given_dest(self, m_get_interface, tmp_path):
+        m_download = mock.MagicMock()
+        m_get_interface.return_value.download = m_download
+
+        out_path = os.path.join(tmp_path, 'output')
+        results = self.invoke('foo/bar', out_path)
+        assert results.output == 'Downloaded foo/bar to {}.\n'.format(out_path)
+
+        args, _ = m_download.call_args
+        assert args[0] == 'foo/bar'
+        assert args[1].name == out_path
+
+    def test_get_to_stdout(self, m_get_interface):
+        m_download = mock.MagicMock()
+        m_download.side_effect = lambda path, obj: obj.write(b'test output\n')
+
+        m_get_interface.return_value.download = m_download
+
+        results = self.invoke('foo/bar', '-')
+        assert results.output == 'test output\nDownloaded foo/bar to -.\n'
 
     def test_get_file_not_found(self, m_get_interface):
-        m_get_interface.return_value.get.side_effect = FileNotFoundInStorageError('abc', 'def')
+        m_get_interface.return_value.download.side_effect = \
+            FileNotFoundInStorageError('abc', 'def')
 
-        results = self.invoke('foo/bar', exit_code=1)
+        results = self.invoke('foo/bar', 'bar', exit_code=1)
         assert results.output == 'Error: Could not open file def: Not found in abc.\n'
 
 
@@ -80,13 +115,34 @@ class TestGet(CLIBase):
 class TestPut(CLIBase):
     cmd_name = 'storage --location loc put'
 
-    def test_put(self, m_get_interface):
-        m_put = mock.MagicMock()
-        m_get_interface.return_value.put = m_put
+    def test_put(self, m_get_interface, tmp_path):
+        m_upload = mock.MagicMock()
+        m_get_interface.return_value.upload = m_upload
 
-        results = self.invoke('foo/bar', 'baz/bar')
-        assert results.output == 'Uploaded foo/bar to baz/bar.\n'
-        m_put.assert_called_once_with('foo/bar', 'baz/bar')
+        source = os.path.join(tmp_path, 'bar.txt')
+        with open(source, 'wb'):
+            pass
+
+        results = self.invoke(source, 'baz/bar')
+        assert results.output == 'Uploaded {} to baz/bar.\n'.format(source)
+
+        args, _ = m_upload.call_args
+        assert args[0].name == source
+        assert args[1] == 'baz/bar'
+
+    def test_put_from_stdin(self, m_get_interface):
+        m_upload = mock.MagicMock()
+        stdin_data = io.BytesIO()
+        m_upload.side_effect = lambda obj, path: stdin_data.write(obj.read())
+        m_get_interface.return_value.upload = m_upload
+
+        results = self.invoke('-', 'baz/bar', input=b'test data')
+        assert results.output == 'Uploaded - to baz/bar.\n'
+
+        args, _ = m_upload.call_args
+        assert isinstance(args[0], io.BytesIO)
+        assert args[1] == 'baz/bar'
+        assert stdin_data.getvalue() == b'test data'
 
 
 @mock.patch.object(current_app.storage, 'get_interface', autospec=True, spec_set=True)

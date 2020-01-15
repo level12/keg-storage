@@ -129,21 +129,35 @@ class StorageBackend:
         """
         Copies a remote file at `path` to the `dest` path given on the local filesystem.
         """
-        with self.open(path, FileMode.read) as infile, open(dest, str(FileMode.write)) as outfile:
+        with open(dest, str(FileMode.write)) as outfile:
+            self.download(path, outfile)
+
+    def download(self, path: str, file_obj: typing.IO):
+        """
+        Copies a remote file at `path` to a file-like object `file_obj`.
+        """
+        with self.open(path, FileMode.read) as infile:
             for chunk in infile.iter_chunks():
-                outfile.write(chunk)
+                file_obj.write(chunk)
 
     def put(self, path: str, dest: str) -> None:
         """
         Copies a local file at `path` to a remote file at `dest`.
         """
+        with open(path, str(FileMode.read)) as infile:
+            self.upload(infile, dest)
+
+    def upload(self, file_obj: typing.IO, path: str):
+        """
+        Copies the contents of a file-like object `file_obj` to a remote file at `path`
+        """
         buffer_size = 5 * 1024 * 1024
 
-        with self.open(dest, FileMode.write) as outfile, open(path, str(FileMode.read)) as infile:
-            buf = infile.read(buffer_size)
+        with self.open(path, FileMode.write) as outfile:
+            buf = file_obj.read(buffer_size)
             while buf:
                 outfile.write(buf)
-                buf = infile.read(buffer_size)
+                buf = file_obj.read(buffer_size)
 
     def __str__(self):
         return self.__class__.__name__
