@@ -1,3 +1,4 @@
+import io
 import os
 
 import arrow
@@ -93,6 +94,21 @@ class TestStorageBackend:
         with output_path.open('rb') as of:
             assert of.read() == data
 
+    def test_download(self, tmp_path):
+        remote = tmp_path / 'remote'
+
+        remote.mkdir()
+        data = b'a' * 15000000
+        with (remote / 'input_file.txt').open('wb') as fp:
+            fp.write(data)
+
+        buffer = io.BytesIO()
+
+        interface = FakeBackend(str(remote))
+        interface.download('input_file.txt', buffer)
+
+        assert buffer.getvalue() == data
+
     def test_put(self, tmp_path):
         remote = tmp_path / 'remote'
         local = tmp_path / 'local'
@@ -107,6 +123,20 @@ class TestStorageBackend:
 
         interface = FakeBackend(str(remote))
         interface.put(str(input_path), 'output_file.txt')
+
+        with (remote / 'output_file.txt').open('rb') as of:
+            assert of.read() == data
+
+    def test_upload(self, tmp_path):
+        remote = tmp_path / 'remote'
+
+        remote.mkdir()
+
+        data = b'a' * 15000000
+        buffer = io.BytesIO(data)
+
+        interface = FakeBackend(str(remote))
+        interface.upload(buffer, 'output_file.txt')
 
         with (remote / 'output_file.txt').open('rb') as of:
             assert of.read() == data

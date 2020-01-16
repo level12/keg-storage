@@ -61,24 +61,25 @@ def storage_list(ctx, path, simple):
 
 @storage.command('get')
 @click.argument('path')
-@click.argument('dest', default='')
+@click.argument('file', type=click.File(mode='wb', lazy=True), required=False)
 @click.pass_context
 @handle_not_found
-def storage_get(ctx, path, dest):
-    if dest == '':
-        dest = path.split('/')[-1]
+def storage_get(ctx, path, file):
+    if file is None:
+        file = open(path.split('/')[-1], 'wb')
 
-    ctx.obj.data['storage'].get(path, dest)
-    click.echo("Downloaded {path} to {dest}.".format(path=path, dest=dest))
+    ctx.obj.data['storage'].download(path, file)
+    click.echo("Downloaded {path} to {dest}.".format(path=path, dest=file.name), err=True)
 
 
 @storage.command('put')
-@click.argument('path')
+@click.argument('file', type=click.File(mode='rb'))
 @click.argument('key')
 @click.pass_context
-def storage_put(ctx, path, key):
-    ctx.obj.data['storage'].put(path, key)
-    click.echo("Uploaded {path} to {key}.".format(key=key, path=path))
+def storage_put(ctx, file, key):
+    ctx.obj.data['storage'].upload(file, key)
+    click.echo("Uploaded {path} to {key}.".format(key=key, path=getattr(file, 'name', '-')),
+               err=True)
 
 
 @storage.command('delete')
@@ -87,7 +88,7 @@ def storage_put(ctx, path, key):
 @handle_not_found
 def storage_delete(ctx, path):
     ctx.obj.data['storage'].delete(path)
-    click.echo("Deleted {path}.".format(path=path))
+    click.echo("Deleted {path}.".format(path=path), err=True)
 
 
 @storage.command('link_for')
