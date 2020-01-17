@@ -273,3 +273,69 @@ class TestAzureStorage:
         assert qs['sp'] == ['r']
         assert qs['sig']
         assert qs['sip'] == ['127.0.0.1']
+
+    def test_construct_from_sas_url(self, m_client):
+        storage = backends.AzureStorage(**{
+            'sas_container_url': 'https://foo.blob.core.windows.net/test?sp=rwdl',
+        })
+        assert storage.account_url is None
+        assert storage.container_url == 'https://foo.blob.core.windows.net/test?sp=rwdl'
+
+        with pytest.raises(ValueError) as exc:
+            storage._create_service_client()
+        assert str(exc.value) == 'Unable to construct a service client from a container SAS URL'
+
+    def test_construct_neither_sas_url_nor_account_info(self, m_client):
+        with pytest.raises(ValueError) as exc:
+            backends.AzureStorage(
+                account='foo',
+                bucket='test',
+            )
+        assert str(exc.value) == 'Must provide either sas_container_url or account, key and bucket'
+
+    def test_sas_create_container_url(self, m_client):
+        storage = backends.AzureStorage(**{
+            'sas_container_url': 'https://foo.blob.core.windows.net/test?sp=rwdl',
+        })
+
+        with pytest.raises(ValueError) as exc:
+            storage.create_container_url(arrow.get(2019, 1, 2, 3, 4, 5))
+        assert str(exc.value) == 'Cannot create a SAS URL without account credentials'
+
+    def test_sas_create_upload_url(self, m_client):
+        storage = backends.AzureStorage(**{
+            'sas_container_url': 'https://foo.blob.core.windows.net/test?sp=rwdl',
+        })
+
+        with pytest.raises(ValueError) as exc:
+            storage.create_upload_url('foo/bar.txt', arrow.get(2019, 1, 2, 3, 4, 5))
+        assert str(exc.value) == 'Cannot create a SAS URL without account credentials'
+
+    @pytest.mark.parametrize('expire', [
+        arrow.get(2019, 1, 2, 3, 4, 5),
+        datetime.datetime(2019, 1, 2, 3, 4, 5)
+    ])
+    def test_create_container_url(self, m_client, expire):
+        storage = self.create_storage()
+        url = storage.create_container_url(expire=expire)
+        parsed = urlparse.urlparse(url)
+        assert parsed.netloc == 'foo.blob.core.windows.net'
+        assert parsed.path == '/test'
+        qs = urlparse.parse_qs(parsed.query)
+
+        assert qs['se'] == ['2019-01-02T03:04:05Z']
+        assert qs['sp'] == ['rwdl']
+        assert qs['sig']
+        assert 'sip' not in qs
+
+        # with IP restriction
+        url = storage.create_container_url(expire=expire, ip='127.0.0.1')
+        parsed = urlparse.urlparse(url)
+        assert parsed.netloc == 'foo.blob.core.windows.net'
+        assert parsed.path == '/test'
+        qs = urlparse.parse_qs(parsed.query)
+
+        assert qs['se'] == ['2019-01-02T03:04:05Z']
+        assert qs['sp'] == ['rwdl']
+        assert qs['sig']
+        assert qs['sip'] == ['127.0.0.1']

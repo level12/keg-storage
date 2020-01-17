@@ -10,6 +10,7 @@ from azure.storage.blob import (
     BlobBlock,
     ContainerClient,
     generate_blob_sas,
+    generate_container_sas,
 )
 from azure.storage.blob._models import BlobPrefix
 
@@ -151,21 +152,36 @@ class AzureReader(AzureFile):
 
 
 class AzureStorage(base.StorageBackend):
-    def __init__(self, account: str, key: str, bucket: str, name: str = 'azure'):
+    def __init__(self, account: str = None, key: str = None, bucket: str = None,
+                 sas_container_url: str = None, name: str = 'azure'):
         super().__init__()
         self.name = name
         self.account = account
         self.key = key
         self.bucket = bucket
-        self.account_url = 'https://{}.blob.core.windows.net'.format(self.account)
+
+        if account and key and bucket:
+            self.account_url = 'https://{}.blob.core.windows.net'.format(self.account)
+            self.container_url = None
+        elif sas_container_url:
+            self.account_url = None
+            self.container_url = sas_container_url
+        else:
+            raise ValueError('Must provide either sas_container_url or account, key and bucket')
 
     def _create_service_client(self):
+        if self.account_url is None:
+            raise ValueError('Unable to construct a service client from a container SAS URL')
         return BlobServiceClient(
             account_url=self.account_url,
             credential=self.key,
         )
 
     def _create_container_client(self):
+        if self.container_url:
+            # Constructed using an SAS URL
+            return ContainerClient.from_container_url(self.container_url)
+
         service_client = self._create_service_client()
         return service_client.get_container_client(self.bucket)
 
@@ -256,6 +272,8 @@ class AzureStorage(base.StorageBackend):
     def _create_sas_url(self, path: str, sas_permissions: str,
                         expire: typing.Union[arrow.Arrow, datetime],
                         ip: typing.Optional[str] = None):
+        if not self.account_url:
+            raise ValueError('Cannot create a SAS URL without account credentials')
         path = self._clean_path(path)
         expire = expire.datetime if isinstance(expire, arrow.Arrow) else expire
         token = generate_blob_sas(
@@ -268,4 +286,20 @@ class AzureStorage(base.StorageBackend):
             ip=ip
         )
         url = urllib.parse.urljoin(self.account_url, '{}/{}'.format(self.bucket, path))
+        return '{}?{}'.format(url, token)
+
+    def create_container_url(self, expire: typing.Union[arrow.Arrow, datetime],
+                             ip: typing.Optional[str] = None):
+        if not self.account_url:
+            raise ValueError('Cannot create a SAS URL without account credentials')
+        expire = expire.datetime if isinstance(expire, arrow.Arrow) else expire
+        token = generate_container_sas(
+            account_name=self.account,
+            container_name=self.bucket,
+            account_key=self.key,
+            permission='rwdl',
+            expiry=expire,
+            ip=ip
+        )
+        url = urllib.parse.urljoin(self.account_url, self.bucket)
         return '{}?{}'.format(url, token)
