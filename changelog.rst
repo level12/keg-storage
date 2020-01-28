@@ -1,6 +1,18 @@
 Changelog
 =========
 
+0.4.3 released 2020-01-28
+-------------------------
+
+- Merge pull request #27 from level12/stdin-stdout-cli-support (aef81c1_)
+- Merge pull request #25 from level12/azure-client-version (02c44de_)
+- Add noqa to version file to avoid coverage errors (1f4e5c3_)
+
+.. _aef81c1: https://github.com/level12/keg-storage/commit/aef81c1
+.. _02c44de: https://github.com/level12/keg-storage/commit/02c44de
+.. _1f4e5c3: https://github.com/level12/keg-storage/commit/1f4e5c3
+
+
 0.4.2 released 2019-11-29
 -------------------------
 
