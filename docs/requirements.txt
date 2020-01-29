@@ -1,3 +1,8 @@
 sphinx
 paramiko
-../[test]
+azure-storage-blob
+boto3
+arrow
+humanize
+BlazeUtils
+kegelements
