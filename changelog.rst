@@ -1,6 +1,14 @@
 Changelog
 =========
 
+0.4.4 released 2020-01-29
+-------------------------
+
+- Create Sphinx Documentation (753ef58_)
+
+.. _753ef58: https://github.com/level12/keg-storage/commit/753ef58
+
+
 0.4.3 released 2020-01-28
 -------------------------
 
