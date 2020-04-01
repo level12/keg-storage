@@ -1,7 +1,6 @@
 Backends
 ========
 
-
 .. toctree::
    :maxdepth: 1
    :caption: Supported Backends:

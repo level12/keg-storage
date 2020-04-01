@@ -6,3 +6,4 @@ Welcome to Keg-Storage
    :caption: Documenation:
 
    backends/index
+   configuration/index
