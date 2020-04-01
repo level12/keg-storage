@@ -119,5 +119,5 @@ def storage_reencrypt(ctx, path):
     click.echo('Re-encrypted {path}'.format(path=path))
 
 
-def add_cli_to_app(app, cli_group_name):
+def add_cli_to_app(app, cli_group_name) -> None:
     app.cli.add_command(storage, name=cli_group_name)

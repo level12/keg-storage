@@ -1,32 +1,59 @@
 import collections
+import logging
+from typing import Mapping, Optional
+
+import flask
 
 from keg_storage import cli
+from keg_storage.backends import StorageBackend
+
+
+log = logging.getLogger(__name__)
 
 
 class Storage:
     """A proxy and management object for storage backends."""
 
-    _interaces = None
+    _interfaces: Mapping[str, StorageBackend]
+    interface: Optional[str]
 
-    def __init__(self, app=None, cli_group_name='storage'):
+    def __init__(self, app: Optional[flask.Flask] = None, cli_group_name='storage'):
         self.cli_group_name = cli_group_name
+        self._interfaces = {}
 
         if app:
             self.init_app(app)
 
-    def init_app(self, app):
+    def _migrate_config(self, app: flask.Flask):
+        """Handle changes in configuration variable names."""
+
+        if "STORAGE_PROFILES" in app.config:
+            if "KEG_STORAGE_PROFILES" in app.config:
+                log.warning(
+                    "Found both KEG_STORAGE_PROFILES and (deprecated) STORAGE_PROFILES. "
+                    "Please remove the obsolete configuration."
+                )
+                return
+            log.warning(
+                "Using deprecated STORAGE_PROFILES setting. "
+                "Please update this to KEG_STORAGE_PROFILES."
+            )
+            app.config["KEG_STORAGE_PROFILES"] = app.config.pop("STORAGE_PROFILES")
+
+    def init_app(self, app: flask.Flask):
+        self._migrate_config(app)
         app.storage = self
 
         self._interfaces = collections.OrderedDict(
             (params['name'], interface(**params))
-            for interface, params in app.config['STORAGE_PROFILES']
+            for interface, params in app.config['KEG_STORAGE_PROFILES']
         )
         self.interface = next(iter(self._interfaces)) if self._interfaces else None
 
-        self.cli_group = self.init_cli(app)
+        self.init_cli(app)
 
-    def get_interface(self, interface=None):
-        return self._interfaces[interface or self.interface]
+    def get_interface(self, interface: Optional[str] = None):
+        return self._interfaces[interface or self.interface or ""]
 
-    def init_cli(self, app):
+    def init_cli(self, app: flask.Flask) -> None:
         cli.add_cli_to_app(app, self.cli_group_name)
