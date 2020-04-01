@@ -1,5 +1,6 @@
 import io
 import os
+import pathlib
 
 import arrow
 import click
@@ -75,7 +76,7 @@ class TestStorageBackend:
             with pytest.raises(NotImplementedError):
                 method(*args)
 
-    def test_get(self, tmp_path):
+    def test_get(self, tmp_path: pathlib.Path):
         remote = tmp_path / 'remote'
         local = tmp_path / 'local'
 
@@ -94,7 +95,7 @@ class TestStorageBackend:
         with output_path.open('rb') as of:
             assert of.read() == data
 
-    def test_download(self, tmp_path):
+    def test_download(self, tmp_path: pathlib.Path):
         remote = tmp_path / 'remote'
 
         remote.mkdir()
@@ -109,7 +110,7 @@ class TestStorageBackend:
 
         assert buffer.getvalue() == data
 
-    def test_put(self, tmp_path):
+    def test_put(self, tmp_path: pathlib.Path):
         remote = tmp_path / 'remote'
         local = tmp_path / 'local'
 
@@ -127,25 +128,46 @@ class TestStorageBackend:
         with (remote / 'output_file.txt').open('rb') as of:
             assert of.read() == data
 
-    def test_upload(self, tmp_path):
-        remote = tmp_path / 'remote'
+    def test_upload(self, tmp_path: pathlib.Path):
+        remote = tmp_path / "remote"
 
         remote.mkdir()
 
-        data = b'a' * 15000000
-        buffer = io.BytesIO(data)
+        data = b"a" * 15_000_000
+        buf = io.BytesIO(data)
 
         interface = FakeBackend(str(remote))
-        interface.upload(buffer, 'output_file.txt')
+        interface.upload(buf, "output_file.txt")
 
-        with (remote / 'output_file.txt').open('rb') as of:
+        with (remote / "output_file.txt").open("rb") as of:
             assert of.read() == data
 
-    def test_str(self, tmp_path):
+    def test_upload_progress(self, tmp_path: pathlib.Path):
+        progress_updates = []
+
+        def progress_callback(n: int) -> None:
+            progress_updates.append(n)
+
+        remote = tmp_path / "remote"
+        remote.mkdir()
+
+        data = b"a" * 15_000_000
+        buf = io.BytesIO(data)
+
+        interface = FakeBackend(str(remote))
+        interface.upload(buf, "output_file.txt", progress_callback=progress_callback)
+
+        assert len(progress_updates) > 0
+        assert progress_updates[-1] == len(data)
+
+        with (remote / "output_file.txt").open("rb") as of:
+            assert of.read() == data
+
+    def test_str(self, tmp_path: pathlib.Path):
         interface = FakeBackend(str(tmp_path))
         assert str(interface) == 'FakeBackend'
 
-    def test_remote_file_iter_chunks(self, tmp_path):
+    def test_remote_file_iter_chunks(self, tmp_path: pathlib.Path):
         file_path = tmp_path / 'test_file.txt'
         with file_path.open('wb') as fp:
             fp.write(b"a" * 100 + b"b" * 100 + b"c" * 5)
@@ -158,7 +180,7 @@ class TestStorageBackend:
             b'c' * 5
         ]
 
-    def test_remote_file_closes_on_delete(self, tmp_path):
+    def test_remote_file_closes_on_delete(self, tmp_path: pathlib.Path):
         file_path = tmp_path / 'test_file.txt'
         file = FakeRemoteFile(str(file_path), FileMode.write)
 
@@ -168,7 +190,7 @@ class TestStorageBackend:
         del file
         assert real_file.closed is True
 
-    def test_remote_file_context_manager(self, tmp_path):
+    def test_remote_file_context_manager(self, tmp_path: pathlib.Path):
         file_path = tmp_path / 'test_file.txt'
         file = FakeRemoteFile(str(file_path), FileMode.write)
         real_file = file.file
@@ -177,7 +199,7 @@ class TestStorageBackend:
             assert real_file.closed is False
         assert real_file.closed is True
 
-    def test_remote_file_iter(self, tmp_path):
+    def test_remote_file_iter(self, tmp_path: pathlib.Path):
         file_path = tmp_path / 'test_file.txt'
         with file_path.open('wb') as fp:
             fp.write(b"a" * 20 + b"b" * 20 + b"c" * 20)
@@ -192,7 +214,7 @@ class TestStorageBackend:
 
 
 class TestFileNotFoundException:
-    def test_click_wrapper(self, tmp_path):
+    def test_click_wrapper(self, tmp_path: pathlib.Path):
         backend = FakeBackend(str(tmp_path))
 
         @handle_not_found

@@ -4,6 +4,9 @@ import typing
 import arrow
 
 
+ProgressCallback = typing.Callable[[int], None]
+
+
 class ListEntry(typing.NamedTuple):
     name: str
     last_modified: arrow.Arrow
@@ -147,16 +150,29 @@ class StorageBackend:
         with open(path, str(FileMode.read)) as infile:
             self.upload(infile, dest)
 
-    def upload(self, file_obj: typing.IO, path: str):
+    def upload(
+        self,
+        file_obj: typing.IO,
+        path: str,
+        *,
+        progress_callback: typing.Optional[ProgressCallback] = None
+    ):
         """
         Copies the contents of a file-like object `file_obj` to a remote file at `path`
+
+        If desired, a progress callback can be supplied. The function should accept an int
+        parameter, which will be the number of bytes uploaded so far.
         """
+        bytes_written = 0
         buffer_size = 5 * 1024 * 1024
 
         with self.open(path, FileMode.write) as outfile:
             buf = file_obj.read(buffer_size)
             while buf:
                 outfile.write(buf)
+                bytes_written += len(buf)
+                if progress_callback:
+                    progress_callback(bytes_written)
                 buf = file_obj.read(buffer_size)
 
     def __str__(self):
