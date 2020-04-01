@@ -12,7 +12,7 @@ with open(osp.join(cdir, 'keg_storage', 'version.py')) as version_fp:
 
 setup(
     name="KegStorage",
-    description="A simple storage interface with multiple backends for use in a Keg_ app.",
+    description="A simple storage interface with multiple backends for use in a Keg app.",
     long_description='\n\n'.join((README, CHANGELOG)),
     author="Level 12 Developers",
     author_email="devteam@level12.io",
