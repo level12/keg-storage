@@ -148,11 +148,7 @@ class TestStorageBackend:
     def test_remote_file_iter_chunks(self, tmp_path):
         file_path = tmp_path / 'test_file.txt'
         with file_path.open('wb') as fp:
-            fp.write(
-                b'a' * 100 +
-                b'b' * 100 +
-                b'c' * 5
-            )
+            fp.write(b"a" * 100 + b"b" * 100 + b"c" * 5)
 
         file = FakeRemoteFile(str(file_path), FileMode.read)
         chunks = list(file.iter_chunks(100))
@@ -184,11 +180,7 @@ class TestStorageBackend:
     def test_remote_file_iter(self, tmp_path):
         file_path = tmp_path / 'test_file.txt'
         with file_path.open('wb') as fp:
-            fp.write(
-                b'a' * 20 +
-                b'b' * 20 +
-                b'c' * 20
-            )
+            fp.write(b"a" * 20 + b"b" * 20 + b"c" * 20)
 
         file = FakeRemoteFile(str(file_path), FileMode.read)
         chunks = list(file)

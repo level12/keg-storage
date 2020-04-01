@@ -10,10 +10,8 @@ import pytest
 from azure.storage.blob import BlobProperties
 from azure.storage.blob._models import BlobPrefix
 
-from keg_storage import (
-    backends,
-    base,
-)
+from keg_storage import backends
+from keg_storage.backends import base
 
 
 @mock.patch.object(backends.AzureStorage, '_create_container_client')
@@ -84,7 +82,7 @@ class TestAzureStorage:
             string.ascii_lowercase,
             string.ascii_uppercase,
         ]).encode()
-        chunks = [data[i: i+10] for i in range(0, len(data), 10)]
+        chunks = [data[i : i + 10] for i in range(0, len(data), 10)]
 
         m_blob_client = m_client.return_value.get_blob_client
         m_stream = m_blob_client.return_value.download_blob
