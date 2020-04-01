@@ -281,9 +281,8 @@ class TestAzureStorage:
         assert storage.account_url is None
         assert storage.container_url == 'https://foo.blob.core.windows.net/test?sp=rwdl'
 
-        with pytest.raises(ValueError) as exc:
+        with pytest.raises(ValueError, match="Unable to construct a service client from a container SAS URL"):
             storage._create_service_client()
-        assert str(exc.value) == 'Unable to construct a service client from a container SAS URL'
 
     def test_construct_neither_sas_url_nor_account_info(self, m_client):
         with pytest.raises(ValueError) as exc:

@@ -152,8 +152,14 @@ class AzureReader(AzureFile):
 
 
 class AzureStorage(base.StorageBackend):
-    def __init__(self, account: str = None, key: str = None, bucket: str = None,
-                 sas_container_url: str = None, name: str = 'azure'):
+    def __init__(
+        self,
+        account: Optional[str] = None,
+        key: Optional[str] = None,
+        bucket: Optional[str] = None,
+        sas_container_url: Optional[str] = None,
+        name: str = 'azure',
+    ):
         super().__init__()
         self.name = name
         self.account = account
