@@ -31,14 +31,16 @@ setup(
     version=version['VERSION'],
     install_requires=[
         'arrow',
-        'boto3',
-        'botocore',
         'humanize',
         'BlazeUtils',
     ],
     extras_require={
         'sftp': [
             'paramiko',
+        ],
+        'aws': [
+            'boto3',
+            'botocore',
         ],
         'azure': [
             'azure-storage-blob',
