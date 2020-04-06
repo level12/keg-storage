@@ -110,6 +110,29 @@ class TestStorageBackend:
 
         assert buf.getvalue() == data
 
+    def test_download_progress(self, tmp_path: pathlib.Path):
+        progress_updates = []
+
+        def progress_callback(n: int) -> None:
+            progress_updates.append(n)
+
+        remote = tmp_path / "remote"
+        remote.mkdir()
+
+        data = b"a" * 15_000_000
+        with (remote / "input_file.txt").open("wb") as fp:
+            fp.write(data)
+
+        buf = io.BytesIO()
+
+        interface = FakeBackend(remote)
+        interface.download("input_file.txt", buf, progress_callback=progress_callback)
+
+        assert len(progress_updates) > 0
+        assert progress_updates[-1] == len(data)
+
+        assert buf.getvalue() == data
+
     def test_put(self, tmp_path: pathlib.Path):
         remote = tmp_path / 'remote'
         local = tmp_path / 'local'

@@ -135,13 +135,27 @@ class StorageBackend:
         with open(dest, str(FileMode.write)) as outfile:
             self.download(path, outfile)
 
-    def download(self, path: str, file_obj: typing.IO):
+    def download(
+        self,
+        path: str,
+        file_obj: typing.IO,
+        *,
+        progress_callback: typing.Optional[ProgressCallback] = None
+    ):
         """
         Copies a remote file at `path` to a file-like object `file_obj`.
+
+        If desired, a progress callback can be supplied. The function should accept an int
+        parameter, which will be the number of bytes downloaded so far.
         """
+        bytes_read = 0
+
         with self.open(path, FileMode.read) as infile:
             for chunk in infile.iter_chunks():
                 file_obj.write(chunk)
+                bytes_read += len(chunk)
+                if progress_callback:
+                    progress_callback(bytes_read)
 
     def put(self, path: str, dest: str) -> None:
         """
