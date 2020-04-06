@@ -1,5 +1,6 @@
 import collections
 import logging
+import warnings
 from typing import Mapping, Optional
 
 import flask
@@ -29,14 +30,15 @@ class Storage:
 
         if "STORAGE_PROFILES" in app.config:
             if "KEG_STORAGE_PROFILES" in app.config:
-                log.warning(
-                    "Found both KEG_STORAGE_PROFILES and (deprecated) STORAGE_PROFILES. "
-                    "Please remove the obsolete configuration."
+                warnings.warn(
+                    "Found both KEG_STORAGE_PROFILES and deprecated STORAGE_PROFILES. "
+                    "Please remove the obsolete configuration.",
+                    DeprecationWarning,
                 )
                 return
-            log.warning(
-                "Using deprecated STORAGE_PROFILES setting. "
-                "Please update this to KEG_STORAGE_PROFILES."
+            warnings.warn(
+                "STORAGE_PROFILES is deprecated. Please use KEG_STORAGE_PROFILES instead.",
+                DeprecationWarning,
             )
             app.config["KEG_STORAGE_PROFILES"] = app.config.pop("STORAGE_PROFILES")
 
