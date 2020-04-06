@@ -40,7 +40,6 @@ setup(
         ],
         'aws': [
             'boto3',
-            'botocore',
         ],
         'azure': [
             'azure-storage-blob',
@@ -50,13 +49,14 @@ setup(
         ],
         'test': [
             'azure-storage-blob',
-            'paramiko',
-            'tox',
-            'pytest',
-            'pytest-coverage',
-            'wrapt',
+            'boto3',
             'flake8',
             'flask_webtest',
+            'paramiko',
+            'pytest',
+            'pytest-coverage',
+            'tox',
+            'wrapt',
         ]
     }
 )
