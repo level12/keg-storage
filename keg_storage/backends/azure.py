@@ -3,7 +3,7 @@ import os
 import typing
 import urllib.parse
 from datetime import datetime
-from typing import Optional
+from typing import ClassVar, List, Optional
 
 import arrow
 from azure.storage.blob import (
@@ -49,19 +49,26 @@ class AzureWriter(AzureFile):
         2. There is no separate call to instantiate the upload. The first call to put_block will
            create the blob.
     """
-    def __init__(self, path: str, mode: base.FileMode, container_client: ContainerClient,
-                 chunk_size: int = None):
-        max_block_size = 100 * 1024 * 1024
+
+    max_block_size: ClassVar[int] = 100 * 1024 * 1024
+
+    def __init__(
+        self,
+        path: str,
+        mode: base.FileMode,
+        container_client: ContainerClient,
+        chunk_size: int = max_block_size,
+    ):
         if chunk_size is not None:
             # chunk_size cannot be larger than max_block_size due to API restrictions
-            chunk_size = min(chunk_size, max_block_size)
+            chunk_size = min(chunk_size, self.max_block_size)
         super().__init__(
             path=path,
             mode=mode,
             container_client=container_client,
             chunk_size=chunk_size,
         )
-        self.blocks = []
+        self.blocks: List[BlobBlock] = []
 
     def _gen_block_id(self) -> str:
         """
@@ -153,6 +160,8 @@ class AzureReader(AzureFile):
 
 
 class AzureStorage(base.StorageBackend):
+    account_url: Optional[str]
+
     def __init__(
         self,
         account: Optional[str] = None,

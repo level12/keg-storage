@@ -58,7 +58,7 @@ def reencrypt(storage, path, old_key, new_key):
         old_key_bytes = None
         for idx, key in enumerate(keys):
             try:
-                log.info('Trying to decrypt {}.'.format(path, len(keys)))
+                log.info('Trying to decrypt {}.'.format(path))
                 old_key_bytes = ke_crypto.decrypt_bytesio(key, old_key_local.name)
                 log.info('Successfully Decrypted {} with key {}.'.format(path, idx))
             except Exception as e:

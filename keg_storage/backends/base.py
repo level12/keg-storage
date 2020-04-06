@@ -23,7 +23,7 @@ class FileMode(enum.Flag):
         return f'{s}b'
 
     @classmethod
-    def as_mode(cls, obj):
+    def as_mode(cls, obj) -> "FileMode":
         if isinstance(obj, cls):
             return obj
         if not isinstance(obj, str):
