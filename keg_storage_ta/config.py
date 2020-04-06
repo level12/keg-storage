@@ -8,7 +8,7 @@ class DefaultProfile(object):
     SITE_NAME = 'Keg Storage Demo'
     SITE_ABBR = 'KS Demo'
 
-    STORAGE_PROFILES = [
+    KEG_STORAGE_PROFILES = [
         (keg_storage.S3Storage, {
             'name': 'storage.s3',
             'bucket': 'storage.test',

@@ -1,16 +1,16 @@
 import datetime
 import io
+from unittest import mock
 
 import arrow
-from botocore.exceptions import ClientError
 import pytest
-from mock import mock
+from botocore.exceptions import ClientError
 
 import keg_storage.backends as backends
 from keg_storage.backends.base import (
+    FileMode,
     FileNotFoundInStorageError,
     ListEntry,
-    FileMode,
 )
 
 

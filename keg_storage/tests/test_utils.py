@@ -1,7 +1,7 @@
 import io
+from unittest import mock
 
 import pytest
-from mock import mock
 
 try:
     import keg_elements.crypto as ke_crypto
@@ -9,6 +9,7 @@ except ImportError:
     ke_crypto = None
 
 from keg_storage import utils
+
 
 DEFAULT_PLAINTEXT = b'data' * 1024 * 1024
 

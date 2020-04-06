@@ -11,3 +11,6 @@ coverage.xml
 .tox
 htmlcov/
 pytest-reports/
+
+.mypy_cache/
+.python-version

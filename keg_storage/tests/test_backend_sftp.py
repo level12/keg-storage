@@ -1,14 +1,12 @@
+from unittest import mock
+
 import arrow
 import pytest
-from blazeutils.containers import LazyDict
-from unittest import mock
 import wrapt
+from blazeutils.containers import LazyDict
 
 import keg_storage
-from keg_storage.backends.base import (
-    ListEntry,
-    FileMode,
-)
+from keg_storage.backends.base import FileMode, ListEntry
 from keg_storage.backends.sftp import SFTPRemoteFile
 
 
