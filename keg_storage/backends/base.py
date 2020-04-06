@@ -23,7 +23,7 @@ class FileMode(enum.Flag):
         return f'{s}b'
 
     @classmethod
-    def as_mode(cls, obj):
+    def as_mode(cls, obj) -> "FileMode":
         if isinstance(obj, cls):
             return obj
         if not isinstance(obj, str):
@@ -103,10 +103,8 @@ class RemoteFile:
 
 
 class StorageBackend:
-    name = None
-
-    def __init__(self, *args, **kwargs):
-        pass
+    def __init__(self, name: str):
+        self.name = name
 
     def list(self, path: str) -> typing.List[ListEntry]:
         """

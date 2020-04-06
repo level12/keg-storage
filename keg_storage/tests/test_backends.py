@@ -1,6 +1,7 @@
 import io
 import os
 import pathlib
+import re
 
 import arrow
 import click
@@ -34,7 +35,7 @@ class FakeRemoteFile(RemoteFile):
 
 class FakeBackend(keg_storage.StorageBackend):
     def __init__(self, base_dir: pathlib.Path):
-        super().__init__()
+        super().__init__("fake")
         self.base_dir = base_dir
 
     def list(self, path: str):
@@ -62,13 +63,12 @@ class FakeBackend(keg_storage.StorageBackend):
 class TestStorageBackend:
 
     def test_methods_not_implemented(self):
-
-        interface = keg_storage.StorageBackend()
+        interface = keg_storage.StorageBackend("incomplete")
 
         cases = {
-            interface.list: ('path',),
-            interface.delete: ('path',),
-            interface.open: ('path', FileMode.read),
+            interface.list: ("path",),
+            interface.delete: ("path",),
+            interface.open: ("path", FileMode.read),
         }
 
         for method, args in cases.items():
@@ -259,12 +259,13 @@ class TestFileMode:
     def test_as_mode(self):
         assert FileMode.as_mode(FileMode.read) == FileMode.read
 
-        assert FileMode.as_mode('r') == FileMode.read
-        assert FileMode.as_mode('w') == FileMode.write
-        assert FileMode.as_mode('rw') == FileMode.read | FileMode.write
-        assert FileMode.as_mode('wr') == FileMode.read | FileMode.write
-        assert FileMode.as_mode('rb') == FileMode.read
+        assert FileMode.as_mode("r") == FileMode.read
+        assert FileMode.as_mode("w") == FileMode.write
+        assert FileMode.as_mode("rw") == FileMode.read | FileMode.write
+        assert FileMode.as_mode("wr") == FileMode.read | FileMode.write
+        assert FileMode.as_mode("rb") == FileMode.read
 
-        with pytest.raises(ValueError) as exc:
+        with pytest.raises(
+            ValueError, match=re.escape("as_mode() accepts only FileMode or str arguments")
+        ):
             FileMode.as_mode(1)
-        assert str(exc.value) == 'as_mode() accepts only FileMode or str arguments'

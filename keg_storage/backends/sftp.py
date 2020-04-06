@@ -54,14 +54,13 @@ class SFTPStorage(StorageBackend):
             look_for_keys=False,
             name='sftp'
     ):
-        super().__init__()
+        super().__init__(name)
         self.host = host
         self.username = username
         self.key_filename = key_filename
         self.known_hosts_fpath = known_hosts_fpath
         self.allow_agent = allow_agent
         self.look_for_keys = look_for_keys
-        self.name = name
 
     def create_client(self):
         client = SSHClient()

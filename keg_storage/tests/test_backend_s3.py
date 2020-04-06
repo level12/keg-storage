@@ -1,5 +1,6 @@
 import datetime
 import io
+import re
 from unittest import mock
 
 import arrow
@@ -166,16 +167,17 @@ class TestS3Storage:
         assert isinstance(result, backends.s3.S3Writer)
 
     def test_open_read_write(self, m_boto):
-        s3 = backends.S3Storage('bucket', aws_region='us-east-1')
-        with pytest.raises(NotImplementedError) as exc:
-            s3.open('foo/bar', FileMode.read | FileMode.write)
-        assert str(exc.value) == 'Read+write mode not supported by the S3 backend'
+        s3 = backends.S3Storage("bucket", aws_region="us-east-1")
+        with pytest.raises(
+            NotImplementedError, match=re.escape("Read+write mode not supported by the S3 backend")
+        ):
+            s3.open("foo/bar", FileMode.read | FileMode.write)
 
-        with pytest.raises(ValueError) as exc:
-            s3.open('foo/bar', FileMode(0))
-        assert (
-            str(exc.value) == 'Unsupported mode. Accepted modes are FileMode.read or FileMode.write'
-        )
+        with pytest.raises(
+            ValueError,
+            match=re.escape("Unsupported mode. Accepted modes are FileMode.read or FileMode.write"),
+        ):
+            s3.open("foo/bar", FileMode(0))
 
     def test_read_operations(self, m_boto):
         s3 = backends.S3Storage('bucket', aws_region='us-east-1')
@@ -200,7 +202,7 @@ class TestS3Storage:
         with pytest.raises(FileNotFoundInStorageError) as exc:
             s3.open('foo/bar', FileMode.read)
 
-        assert str(exc.value.filename) == 'foo/bar'
+        assert exc.value.filename == 'foo/bar'
         assert str(exc.value.storage_type) == 'S3Storage'
 
     def test_write_operations(self, m_boto):

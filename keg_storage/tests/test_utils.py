@@ -89,8 +89,9 @@ class TestReencrypt:
             utils.reencrypt(store, 'file', k1, k3)
 
 
-@pytest.mark.skipif(ke_crypto is not None, reason='Only run with keg elements not installed')
+@pytest.mark.skipif(ke_crypto is not None, reason="Only run with keg elements not installed")
 def test_reencrypt():
-    with pytest.raises(utils.MissingDependencyException) as exc:
-        utils.reencrypt(None, '', '', '')
-    assert str(exc.value) == 'Keg Elements is required for crypto operations'
+    with pytest.raises(
+        utils.MissingDependencyException, match="Keg Elements is required for crypto operations"
+    ):
+        utils.reencrypt(None, "", "", "")

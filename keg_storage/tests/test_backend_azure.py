@@ -1,5 +1,6 @@
 import base64
 import datetime
+import re
 import string
 import urllib.parse as urlparse
 from io import BytesIO
@@ -62,17 +63,19 @@ class TestAzureStorage:
 
     def test_open_read_write(self, m_client):
         storage = self.create_storage()
-        with pytest.raises(NotImplementedError) as exc:
-            storage.open('foo', base.FileMode.read | base.FileMode.write)
-        assert str(exc.value) == 'Read+write mode not supported by the Azure backend'
+        with pytest.raises(
+            NotImplementedError,
+            match=re.escape("Read+write mode not supported by the Azure backend"),
+        ):
+            storage.open("foo", base.FileMode.read | base.FileMode.write)
 
     def test_open_bad_mode(self, m_client):
         storage = self.create_storage()
-        with pytest.raises(ValueError) as exc:
-            storage.open('foo', base.FileMode(0))
-        assert (
-            str(exc.value) == 'Unsupported mode. Accepted modes are FileMode.read or FileMode.write'
-        )
+        with pytest.raises(
+            ValueError,
+            match=re.escape("Unsupported mode. Accepted modes are FileMode.read or FileMode.write"),
+        ):
+            storage.open("foo", base.FileMode(0))
 
     def test_read_operations(self, m_client):
         storage = self.create_storage()
@@ -271,5 +274,70 @@ class TestAzureStorage:
 
         assert qs['se'] == ['2019-01-02T03:04:05Z']
         assert qs['sp'] == ['r']
+        assert qs['sig']
+        assert qs['sip'] == ['127.0.0.1']
+
+    def test_construct_from_sas_url(self, m_client):
+        storage = backends.AzureStorage(
+            **{"sas_container_url": "https://foo.blob.core.windows.net/test?sp=rwdl"}
+        )
+        assert storage.account_url is None
+        assert storage.container_url == "https://foo.blob.core.windows.net/test?sp=rwdl"
+
+        with pytest.raises(
+            ValueError, match="Unable to construct a service client from a container SAS URL"
+        ):
+            storage._create_service_client()
+
+    def test_construct_neither_sas_url_nor_account_info(self, m_client):
+        with pytest.raises(
+            ValueError, match="Must provide either sas_container_url or account, key and bucket"
+        ):
+            backends.AzureStorage(
+                account="foo", bucket="test",
+            )
+
+    def test_sas_create_container_url(self, m_client):
+        storage = backends.AzureStorage(
+            **{"sas_container_url": "https://foo.blob.core.windows.net/test?sp=rwdl"}
+        )
+
+        with pytest.raises(ValueError, match="Cannot create a SAS URL without account credentials"):
+            storage.create_container_url(arrow.get(2019, 1, 2, 3, 4, 5))
+
+    def test_sas_create_upload_url(self, m_client):
+        storage = backends.AzureStorage(
+            **{"sas_container_url": "https://foo.blob.core.windows.net/test?sp=rwdl"}
+        )
+
+        with pytest.raises(ValueError, match="Cannot create a SAS URL without account credentials"):
+            storage.create_upload_url("foo/bar.txt", arrow.get(2019, 1, 2, 3, 4, 5))
+
+    @pytest.mark.parametrize('expire', [
+        arrow.get(2019, 1, 2, 3, 4, 5),
+        datetime.datetime(2019, 1, 2, 3, 4, 5)
+    ])
+    def test_create_container_url(self, m_client, expire):
+        storage = self.create_storage()
+        url = storage.create_container_url(expire=expire)
+        parsed = urlparse.urlparse(url)
+        assert parsed.netloc == 'foo.blob.core.windows.net'
+        assert parsed.path == '/test'
+        qs = urlparse.parse_qs(parsed.query)
+
+        assert qs['se'] == ['2019-01-02T03:04:05Z']
+        assert qs['sp'] == ['rwdl']
+        assert qs['sig']
+        assert 'sip' not in qs
+
+        # with IP restriction
+        url = storage.create_container_url(expire=expire, ip='127.0.0.1')
+        parsed = urlparse.urlparse(url)
+        assert parsed.netloc == 'foo.blob.core.windows.net'
+        assert parsed.path == '/test'
+        qs = urlparse.parse_qs(parsed.query)
+
+        assert qs['se'] == ['2019-01-02T03:04:05Z']
+        assert qs['sp'] == ['rwdl']
         assert qs['sig']
         assert qs['sip'] == ['127.0.0.1']
