@@ -1,5 +1,6 @@
 import io
 import os
+import pathlib
 
 import arrow
 import click
@@ -17,9 +18,9 @@ from keg_storage.cli import handle_not_found
 class FakeRemoteFile(RemoteFile):
     iter_chunk_size = 20
 
-    def __init__(self, path, mode):
+    def __init__(self, path: pathlib.Path, mode: FileMode):
         super().__init__(mode)
-        self.file = open(path, str(self.mode))
+        self.file = path.open(mode=str(self.mode))
 
     def read(self, size):
         return self.file.read(size)
@@ -32,14 +33,13 @@ class FakeRemoteFile(RemoteFile):
 
 
 class FakeBackend(keg_storage.StorageBackend):
-    def __init__(self, dir):
+    def __init__(self, base_dir: pathlib.Path):
         super().__init__()
-        self.base_dir = dir
+        self.base_dir = base_dir
 
-    def list(self, path):
+    def list(self, path: str):
         results = []
-        path = os.path.join(self.base_dir, path)
-        for dirent in os.scandir(path):
+        for dirent in os.scandir(self.base_dir / path):
             stat = dirent.stat()
             results.append(
                 ListEntry(
@@ -52,7 +52,7 @@ class FakeBackend(keg_storage.StorageBackend):
 
     def open(self, path, mode):
         path = os.path.join(self.base_dir, path)
-        return FakeRemoteFile(path, mode)
+        return FakeRemoteFile(self.base_dir / path, mode)
 
     def delete(self, path):
         path = os.path.join(self.base_dir, path)
@@ -75,7 +75,7 @@ class TestStorageBackend:
             with pytest.raises(NotImplementedError):
                 method(*args)
 
-    def test_get(self, tmp_path):
+    def test_get(self, tmp_path: pathlib.Path):
         remote = tmp_path / 'remote'
         local = tmp_path / 'local'
 
@@ -86,7 +86,7 @@ class TestStorageBackend:
         with (remote / 'input_file.txt').open('wb') as fp:
             fp.write(data)
 
-        interface = FakeBackend(str(remote))
+        interface = FakeBackend(remote)
 
         output_path = local / 'output_file.txt'
         interface.get('input_file.txt', str(output_path))
@@ -94,22 +94,46 @@ class TestStorageBackend:
         with output_path.open('rb') as of:
             assert of.read() == data
 
-    def test_download(self, tmp_path):
-        remote = tmp_path / 'remote'
+    def test_download(self, tmp_path: pathlib.Path):
+        remote = tmp_path / "remote"
 
         remote.mkdir()
-        data = b'a' * 15000000
-        with (remote / 'input_file.txt').open('wb') as fp:
+
+        data = b"a" * 15_000_000
+        with (remote / "input_file.txt").open("wb") as fp:
             fp.write(data)
 
-        buffer = io.BytesIO()
+        buf = io.BytesIO()
 
-        interface = FakeBackend(str(remote))
-        interface.download('input_file.txt', buffer)
+        interface = FakeBackend(remote)
+        interface.download("input_file.txt", buf)
 
-        assert buffer.getvalue() == data
+        assert buf.getvalue() == data
 
-    def test_put(self, tmp_path):
+    def test_download_progress(self, tmp_path: pathlib.Path):
+        progress_updates = []
+
+        def progress_callback(n: int) -> None:
+            progress_updates.append(n)
+
+        remote = tmp_path / "remote"
+        remote.mkdir()
+
+        data = b"a" * 15_000_000
+        with (remote / "input_file.txt").open("wb") as fp:
+            fp.write(data)
+
+        buf = io.BytesIO()
+
+        interface = FakeBackend(remote)
+        interface.download("input_file.txt", buf, progress_callback=progress_callback)
+
+        assert len(progress_updates) > 0
+        assert progress_updates[-1] == len(data)
+
+        assert buf.getvalue() == data
+
+    def test_put(self, tmp_path: pathlib.Path):
         remote = tmp_path / 'remote'
         local = tmp_path / 'local'
 
@@ -121,36 +145,57 @@ class TestStorageBackend:
         with input_path.open('wb') as fp:
             fp.write(data)
 
-        interface = FakeBackend(str(remote))
+        interface = FakeBackend(remote)
         interface.put(str(input_path), 'output_file.txt')
 
         with (remote / 'output_file.txt').open('rb') as of:
             assert of.read() == data
 
-    def test_upload(self, tmp_path):
-        remote = tmp_path / 'remote'
+    def test_upload(self, tmp_path: pathlib.Path):
+        remote = tmp_path / "remote"
 
         remote.mkdir()
 
-        data = b'a' * 15000000
-        buffer = io.BytesIO(data)
+        data = b"a" * 15_000_000
+        buf = io.BytesIO(data)
 
-        interface = FakeBackend(str(remote))
-        interface.upload(buffer, 'output_file.txt')
+        interface = FakeBackend(remote)
+        interface.upload(buf, "output_file.txt")
 
-        with (remote / 'output_file.txt').open('rb') as of:
+        with (remote / "output_file.txt").open("rb") as of:
             assert of.read() == data
 
-    def test_str(self, tmp_path):
-        interface = FakeBackend(str(tmp_path))
+    def test_upload_progress(self, tmp_path: pathlib.Path):
+        progress_updates = []
+
+        def progress_callback(n: int) -> None:
+            progress_updates.append(n)
+
+        remote = tmp_path / "remote"
+        remote.mkdir()
+
+        data = b"a" * 15_000_000
+        buf = io.BytesIO(data)
+
+        interface = FakeBackend(remote)
+        interface.upload(buf, "output_file.txt", progress_callback=progress_callback)
+
+        assert len(progress_updates) > 0
+        assert progress_updates[-1] == len(data)
+
+        with (remote / "output_file.txt").open("rb") as of:
+            assert of.read() == data
+
+    def test_str(self, tmp_path: pathlib.Path):
+        interface = FakeBackend(tmp_path)
         assert str(interface) == 'FakeBackend'
 
-    def test_remote_file_iter_chunks(self, tmp_path):
+    def test_remote_file_iter_chunks(self, tmp_path: pathlib.Path):
         file_path = tmp_path / 'test_file.txt'
         with file_path.open('wb') as fp:
             fp.write(b"a" * 100 + b"b" * 100 + b"c" * 5)
 
-        file = FakeRemoteFile(str(file_path), FileMode.read)
+        file = FakeRemoteFile(file_path, FileMode.read)
         chunks = list(file.iter_chunks(100))
         assert chunks == [
             b'a' * 100,
@@ -158,9 +203,9 @@ class TestStorageBackend:
             b'c' * 5
         ]
 
-    def test_remote_file_closes_on_delete(self, tmp_path):
+    def test_remote_file_closes_on_delete(self, tmp_path: pathlib.Path):
         file_path = tmp_path / 'test_file.txt'
-        file = FakeRemoteFile(str(file_path), FileMode.write)
+        file = FakeRemoteFile(file_path, FileMode.write)
 
         real_file = file.file
         assert real_file.closed is False
@@ -168,21 +213,21 @@ class TestStorageBackend:
         del file
         assert real_file.closed is True
 
-    def test_remote_file_context_manager(self, tmp_path):
+    def test_remote_file_context_manager(self, tmp_path: pathlib.Path):
         file_path = tmp_path / 'test_file.txt'
-        file = FakeRemoteFile(str(file_path), FileMode.write)
+        file = FakeRemoteFile(file_path, FileMode.write)
         real_file = file.file
 
         with file:
             assert real_file.closed is False
         assert real_file.closed is True
 
-    def test_remote_file_iter(self, tmp_path):
+    def test_remote_file_iter(self, tmp_path: pathlib.Path):
         file_path = tmp_path / 'test_file.txt'
         with file_path.open('wb') as fp:
             fp.write(b"a" * 20 + b"b" * 20 + b"c" * 20)
 
-        file = FakeRemoteFile(str(file_path), FileMode.read)
+        file = FakeRemoteFile(file_path, FileMode.read)
         chunks = list(file)
         assert chunks == [
             b'a' * 20,
@@ -192,8 +237,8 @@ class TestStorageBackend:
 
 
 class TestFileNotFoundException:
-    def test_click_wrapper(self, tmp_path):
-        backend = FakeBackend(str(tmp_path))
+    def test_click_wrapper(self, tmp_path: pathlib.Path):
+        backend = FakeBackend(tmp_path)
 
         @handle_not_found
         def test_func():
