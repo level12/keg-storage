@@ -181,8 +181,7 @@ class S3Storage(StorageBackend):
             aws_profile=None,
             name='s3'
     ):
-        super().__init__()
-        self.name = name
+        super().__init__(name)
         self.bucket = bucket
         self.session = boto3.session.Session(
             aws_access_key_id=aws_access_key_id,

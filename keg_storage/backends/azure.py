@@ -170,8 +170,7 @@ class AzureStorage(base.StorageBackend):
         sas_container_url: Optional[str] = None,
         name: str = 'azure',
     ):
-        super().__init__()
-        self.name = name
+        super().__init__(name)
         self.account = account
         self.key = key
         self.bucket = bucket

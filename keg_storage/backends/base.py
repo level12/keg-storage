@@ -103,10 +103,8 @@ class RemoteFile:
 
 
 class StorageBackend:
-    name = None
-
-    def __init__(self, *args, **kwargs):
-        pass
+    def __init__(self, name: str):
+        self.name = name
 
     def list(self, path: str) -> typing.List[ListEntry]:
         """

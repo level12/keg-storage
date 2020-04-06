@@ -35,7 +35,7 @@ class FakeRemoteFile(RemoteFile):
 
 class FakeBackend(keg_storage.StorageBackend):
     def __init__(self, base_dir: pathlib.Path):
-        super().__init__()
+        super().__init__("fake")
         self.base_dir = base_dir
 
     def list(self, path: str):
@@ -63,13 +63,12 @@ class FakeBackend(keg_storage.StorageBackend):
 class TestStorageBackend:
 
     def test_methods_not_implemented(self):
-
-        interface = keg_storage.StorageBackend()
+        interface = keg_storage.StorageBackend("incomplete")
 
         cases = {
-            interface.list: ('path',),
-            interface.delete: ('path',),
-            interface.open: ('path', FileMode.read),
+            interface.list: ("path",),
+            interface.delete: ("path",),
+            interface.open: ("path", FileMode.read),
         }
 
         for method, args in cases.items():
