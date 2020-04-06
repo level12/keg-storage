@@ -53,7 +53,12 @@ class Storage:
         self.init_cli(app)
 
     def get_interface(self, interface: Optional[str] = None):
-        return self._interfaces[interface or self.interface or ""]
+        interface = interface or self.interface
+        if interface is None:
+            raise ValueError("no interface was specified")
+        elif interface not in self._interfaces:
+            raise ValueError(f"invalid interface '{interface}'")
+        return self._interfaces[interface]
 
     def init_cli(self, app: flask.Flask) -> None:
         cli.add_cli_to_app(app, self.cli_group_name)
