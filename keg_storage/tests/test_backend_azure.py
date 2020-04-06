@@ -3,9 +3,9 @@ import datetime
 import string
 import urllib.parse as urlparse
 from io import BytesIO
+from unittest import mock
 
 import arrow
-import mock
 import pytest
 from azure.storage.blob import BlobProperties
 from azure.storage.blob._models import BlobPrefix

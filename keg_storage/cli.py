@@ -1,10 +1,11 @@
-import click
 import functools
-from flask.cli import with_appcontext
-import humanize
 
-from keg_storage.backends.base import FileNotFoundInStorageError
+import click
+import humanize
+from flask.cli import with_appcontext
+
 from keg_storage import utils
+from keg_storage.backends.base import FileNotFoundInStorageError
 
 
 @click.group('_storage')

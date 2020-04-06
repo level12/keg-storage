@@ -1,13 +1,13 @@
 import contextlib
 import io
 import os
+from datetime import date
+from unittest import mock
 
 import click.testing
 from blazeutils.containers import LazyDict
-from datetime import date
 from flask import current_app
 from keg.testing import CLIBase, invoke_command
-from mock import mock
 
 from keg_storage import FileNotFoundInStorageError
 

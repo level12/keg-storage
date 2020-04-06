@@ -55,7 +55,6 @@ setup(
             'pytest',
             'pytest-coverage',
             'wrapt',
-            'mock',
             'flake8',
             'flask_webtest',
         ]
