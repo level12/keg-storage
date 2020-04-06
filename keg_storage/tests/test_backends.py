@@ -1,6 +1,7 @@
 import io
 import os
 import pathlib
+import re
 
 import arrow
 import click
@@ -259,12 +260,13 @@ class TestFileMode:
     def test_as_mode(self):
         assert FileMode.as_mode(FileMode.read) == FileMode.read
 
-        assert FileMode.as_mode('r') == FileMode.read
-        assert FileMode.as_mode('w') == FileMode.write
-        assert FileMode.as_mode('rw') == FileMode.read | FileMode.write
-        assert FileMode.as_mode('wr') == FileMode.read | FileMode.write
-        assert FileMode.as_mode('rb') == FileMode.read
+        assert FileMode.as_mode("r") == FileMode.read
+        assert FileMode.as_mode("w") == FileMode.write
+        assert FileMode.as_mode("rw") == FileMode.read | FileMode.write
+        assert FileMode.as_mode("wr") == FileMode.read | FileMode.write
+        assert FileMode.as_mode("rb") == FileMode.read
 
-        with pytest.raises(ValueError) as exc:
+        with pytest.raises(
+            ValueError, match=re.escape("as_mode() accepts only FileMode or str arguments")
+        ):
             FileMode.as_mode(1)
-        assert str(exc.value) == 'as_mode() accepts only FileMode or str arguments'

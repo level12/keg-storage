@@ -94,9 +94,8 @@ class TestSFTPStorage:
     @sftp_mocked()
     def test_read_not_permitted(self, sftp, m_sftp, m_log):
         with sftp.open('/tmp/foo.txt', FileMode.write) as file:
-            with pytest.raises(IOError) as exc:
+            with pytest.raises(IOError, match="File not opened for reading"):
                 file.read(1)
-        assert str(exc.value) == 'File not opened for reading'
 
     @sftp_mocked()
     def test_write_operations(self, sftp, m_sftp, m_log):
@@ -109,7 +108,6 @@ class TestSFTPStorage:
 
     @sftp_mocked()
     def test_write_not_permitted(self, sftp, m_sftp, m_log):
-        with sftp.open('/tmp/foo.txt', FileMode.read) as file:
-            with pytest.raises(IOError) as exc:
-                file.write(b'')
-        assert str(exc.value) == 'File not opened for writing'
+        with sftp.open("/tmp/foo.txt", FileMode.read) as file:
+            with pytest.raises(IOError, match="File not opened for writing"):
+                file.write(b"")

@@ -3,6 +3,7 @@ import os
 import typing
 import urllib.parse
 from datetime import datetime
+from typing import Optional
 
 import arrow
 from azure.storage.blob import (
