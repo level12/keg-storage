@@ -259,7 +259,7 @@ class TestAzureStorageUtilities:
         arrow.get(2019, 1, 2, 3, 4, 5),
         datetime.datetime(2019, 1, 2, 3, 4, 5)
     ])
-    def test_upload_url(self, expire):
+    def test_upload_url(self, expire: Union[arrow.Arrow, datetime.datetime]):
         storage = create_storage()
         url = storage.create_upload_url(
             'abc/def.txt',
@@ -295,7 +295,7 @@ class TestAzureStorageUtilities:
         arrow.get(2019, 1, 2, 3, 4, 5),
         datetime.datetime(2019, 1, 2, 3, 4, 5)
     ])
-    def test_download_url(self, expire):
+    def test_download_url(self, expire: Union[arrow.Arrow, datetime.datetime]):
         storage = create_storage()
         url = storage.create_download_url(
             'abc/def.txt',
