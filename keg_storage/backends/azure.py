@@ -19,7 +19,7 @@ from azure.storage.blob._models import BlobPrefix
 from keg_storage.backends import base
 
 
-DEFAULT_CHUNK_SIZE = 10 * 1024 * 1024
+DEFAULT_CHUNK_SIZE = 5 * 1024 * 1024
 
 
 class AzureFile(base.RemoteFile):
@@ -175,9 +175,11 @@ class AzureStorage(base.StorageBackend):
         bucket: Optional[str] = None,
         sas_container_url: Optional[str] = None,
         sas_blob_url: Optional[str] = None,
+        chunk_size=DEFAULT_CHUNK_SIZE,
         name: str = "azure",
     ):
         super().__init__(name)
+        self.chunk_size = chunk_size
 
         self.account = account
         self.key = key
@@ -251,9 +253,7 @@ class AzureStorage(base.StorageBackend):
 
         return [construct_entry(blob) for blob in list_iter]
 
-    def open(
-        self, path: str, mode: typing.Union[base.FileMode, str], buffer_size: int = 10 * 1024 * 1024
-    ) -> AzureFile:
+    def open(self, path: str, mode: typing.Union[base.FileMode, str]) -> AzureFile:
         mode = base.FileMode.as_mode(mode)
 
         path = self._clean_path(path)
@@ -262,9 +262,9 @@ class AzureStorage(base.StorageBackend):
         if (mode & base.FileMode.read) and (mode & base.FileMode.write):
             raise NotImplementedError('Read+write mode not supported by the Azure backend')
         elif mode & base.FileMode.write:
-            return AzureWriter(mode=mode, blob_client=blob_client, chunk_size=buffer_size)
+            return AzureWriter(mode=mode, blob_client=blob_client, chunk_size=self.chunk_size)
         elif mode & base.FileMode.read:
-            return AzureReader(mode=mode, blob_client=blob_client, chunk_size=buffer_size)
+            return AzureReader(mode=mode, blob_client=blob_client, chunk_size=self.chunk_size)
         else:
             raise ValueError('Unsupported mode. Accepted modes are FileMode.read or FileMode.write')
 

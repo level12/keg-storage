@@ -130,7 +130,7 @@ class TestAzureStorageOperations:
         m_walk.assert_called_once_with('xyz/')
 
     def test_read_operations(self, m_blob_client: mock.MagicMock):
-        storage = create_storage()
+        storage = create_storage(chunk_size=10)
 
         data = ''.join([
             string.digits,
@@ -142,7 +142,7 @@ class TestAzureStorageOperations:
         m_stream = m_blob_client.return_value.download_blob
         m_stream.return_value.chunks.return_value = iter(chunks)
 
-        with storage.open('foo', base.FileMode.read, buffer_size=10) as f:
+        with storage.open('foo', base.FileMode.read) as f:
             assert f.read(1) == b'0'
             assert f.read(2) == b'12'
             assert f.read(10) == b'3456789abc'
@@ -151,7 +151,7 @@ class TestAzureStorageOperations:
 
     @mock.patch('keg_storage.backends.azure.os.urandom', autospec=True, spec_set=True)
     def test_write_operations(self, m_urandom: mock.MagicMock, m_blob_client: mock.MagicMock):
-        storage = create_storage()
+        storage = create_storage(chunk_size=10)
 
         m_urandom.side_effect = lambda x: b'\x00' * x
 
@@ -177,7 +177,7 @@ class TestAzureStorageOperations:
         def block_id(index_bytes):
             return base64.b64encode(index_bytes + bytes([0] * 40)).decode()
 
-        with storage.open('foo', base.FileMode.write, buffer_size=10) as f:
+        with storage.open('foo', base.FileMode.write) as f:
             f.write(b'ab')
             m_stage_block.assert_not_called()
             m_commit_list.assert_not_called()
