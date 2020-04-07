@@ -1,12 +1,20 @@
 from importlib.util import find_spec
 
-from .base import StorageBackend, FileNotFoundInStorageError, FileMode  # noqa
+from .base import (
+    FileMode,
+    FileNotFoundInStorageError,
+    ProgressCallback,
+    RemoteFile,
+    StorageBackend,
+)
 
 __all__ = [
-    'StorageBackend',
-    'FileNotFoundInStorageError',
-    'FileMode',
-    'base',
+    "FileMode",
+    "FileNotFoundInStorageError",
+    "ProgressCallback",
+    "RemoteFile",
+    "StorageBackend",
+    "base",
 ]
 
 if find_spec('boto3') is not None:
