@@ -7,8 +7,9 @@ from typing import ClassVar, List, Optional
 
 import arrow
 from azure.storage.blob import (
-    BlobServiceClient,
     BlobBlock,
+    BlobClient,
+    BlobServiceClient,
     ContainerClient,
     generate_blob_sas,
     generate_container_sas,
@@ -18,24 +19,25 @@ from azure.storage.blob._models import BlobPrefix
 from keg_storage.backends import base
 
 
+DEFAULT_CHUNK_SIZE = 10 * 1024 * 1024
+
+
 class AzureFile(base.RemoteFile):
     """
     Base class for Azure file interface. Since read and write operations are very different and
     integrating the two would introduce a lot of complexity there are distinct subclasses for files
     opened for reading and writing.
     """
-    def __init__(self, path: str, mode: base.FileMode, container_client: ContainerClient,
-                 chunk_size: int = 10 * 1024 * 1024):
+
+    def __init__(self, mode: base.FileMode, blob_client: BlobClient, chunk_size=DEFAULT_CHUNK_SIZE):
         """
-        :param path: blob name
         :param mode: file mode
-        :param container_client: container client instance to use for API calls
+        :param blob_client: blob client instance to use for API calls
         :param chunk_size: read/write buffer size
         """
         super().__init__(mode)
         self.chunk_size = chunk_size
-        self.path = path
-        self.client = container_client.get_blob_client(self.path)
+        self.client = blob_client
 
         # Local buffer to reduce number of requests
         self.buffer = bytearray()
@@ -54,18 +56,16 @@ class AzureWriter(AzureFile):
 
     def __init__(
         self,
-        path: str,
         mode: base.FileMode,
-        container_client: ContainerClient,
-        chunk_size: int = max_block_size,
+        blob_client: BlobClient,
+        chunk_size=DEFAULT_CHUNK_SIZE,
     ):
         if chunk_size is not None:
             # chunk_size cannot be larger than max_block_size due to API restrictions
             chunk_size = min(chunk_size, self.max_block_size)
         super().__init__(
-            path=path,
             mode=mode,
-            container_client=container_client,
+            blob_client=blob_client,
             chunk_size=chunk_size,
         )
         self.blocks: List[BlobBlock] = []
@@ -120,12 +120,16 @@ class AzureReader(AzureFile):
     The Azure reader uses byte ranged API calls to fill a local buffer to avoid lots of API overhead
     for small read sizes.
     """
-    def __init__(self, path: str, mode: base.FileMode, container_client: ContainerClient,
-                 chunk_size=10 * 1024 * 1024):
+
+    def __init__(
+        self,
+        mode: base.FileMode,
+        blob_client: BlobClient,
+        chunk_size=DEFAULT_CHUNK_SIZE,
+    ):
         super().__init__(
-            path=path,
             mode=mode,
-            container_client=container_client,
+            blob_client=blob_client,
             chunk_size=chunk_size,
         )
         self.stream = self.client.download_blob()
@@ -161,6 +165,8 @@ class AzureReader(AzureFile):
 
 class AzureStorage(base.StorageBackend):
     account_url: Optional[str]
+    container_url: Optional[str]
+    blob_url: Optional[str]
 
     def __init__(
         self,
@@ -168,42 +174,65 @@ class AzureStorage(base.StorageBackend):
         key: Optional[str] = None,
         bucket: Optional[str] = None,
         sas_container_url: Optional[str] = None,
-        name: str = 'azure',
+        sas_blob_url: Optional[str] = None,
+        name: str = "azure",
     ):
         super().__init__(name)
+
         self.account = account
         self.key = key
         self.bucket = bucket
 
+        self.account_url = None
+        self.container_url = None
+        self.blob_url = None
+
         if account and key and bucket:
             self.account_url = 'https://{}.blob.core.windows.net'.format(self.account)
-            self.container_url = None
         elif sas_container_url:
-            self.account_url = None
             self.container_url = sas_container_url
+        elif sas_blob_url:
+            self.blob_url = sas_blob_url
         else:
-            raise ValueError('Must provide either sas_container_url or account, key and bucket')
+            raise ValueError(
+                "Must provide a sas_container_url, a sas_blob_url, "
+                "or a combination of account, key, and bucket"
+            )
 
-    def _create_service_client(self):
-        if self.account_url is None:
-            raise ValueError('Unable to construct a service client from a container SAS URL')
-        return BlobServiceClient(
-            account_url=self.account_url,
-            credential=self.key,
-        )
+    def _create_container_client(self) -> ContainerClient:
+        """Create a ContainerClient.
 
-    def _create_container_client(self):
+        First see if a ``container_url`` was configured. Otherwise fall back to credentials.
+        """
+
         if self.container_url:
-            # Constructed using an SAS URL
             return ContainerClient.from_container_url(self.container_url)
 
-        service_client = self._create_service_client()
+        service_client = BlobServiceClient(account_url=self.account_url, credential=self.key)
         return service_client.get_container_client(self.bucket)
+
+    def _create_blob_client(self, path: str) -> BlobClient:
+        """Create a BlobClient for the given path.
+
+        First see if a ``blob_url`` was configured. Otherwise fall back to ``container_url`` or
+        credentials.
+        """
+
+        if self.blob_url:
+            blob_client = BlobClient.from_blob_url(self.blob_url)
+            if blob_client.get_blob_properties().name != path:
+                raise ValueError("Invalid path for the configured SAS blob URL")
+            return blob_client
+
+        container_client = self._create_container_client()
+        return container_client.get_blob_client(path)
 
     def _clean_path(self, path: str):
         return path.lstrip('/')
 
     def list(self, path: str) -> typing.List[base.ListEntry]:
+        if self.blob_url:
+            raise ValueError("Cannot perform list operation when configured with SAS blob URL")
         client = self._create_container_client()
 
         if not path.endswith('/'):
@@ -222,35 +251,27 @@ class AzureStorage(base.StorageBackend):
 
         return [construct_entry(blob) for blob in list_iter]
 
-    def open(self, path: str, mode: typing.Union[base.FileMode, str],
-             buffer_size: int = 10 * 1024 * 1024) -> AzureFile:  # noqa
+    def open(
+        self, path: str, mode: typing.Union[base.FileMode, str], buffer_size: int = 10 * 1024 * 1024
+    ) -> AzureFile:
         mode = base.FileMode.as_mode(mode)
 
         path = self._clean_path(path)
+        blob_client = self._create_blob_client(path)
 
         if (mode & base.FileMode.read) and (mode & base.FileMode.write):
             raise NotImplementedError('Read+write mode not supported by the Azure backend')
         elif mode & base.FileMode.write:
-            return AzureWriter(
-                path=path,
-                mode=mode,
-                container_client=self._create_container_client(),
-                chunk_size=buffer_size
-            )
+            return AzureWriter(mode=mode, blob_client=blob_client, chunk_size=buffer_size)
         elif mode & base.FileMode.read:
-            return AzureReader(
-                path=path,
-                mode=mode,
-                container_client=self._create_container_client(),
-                chunk_size=buffer_size
-            )
+            return AzureReader(mode=mode, blob_client=blob_client, chunk_size=buffer_size)
         else:
             raise ValueError('Unsupported mode. Accepted modes are FileMode.read or FileMode.write')
 
     def delete(self, path: str):
         path = self._clean_path(path)
-        container_client = self._create_container_client()
-        container_client.delete_blob(path)
+        blob_client = self._create_blob_client(path)
+        blob_client.delete_blob()
 
     def create_upload_url(self, path: str, expire: typing.Union[arrow.Arrow, datetime],
                           ip: typing.Optional[str] = None):
