@@ -220,7 +220,7 @@ class AzureStorage(base.StorageBackend):
 
         if self.blob_url:
             blob_client = BlobClient.from_blob_url(self.blob_url)
-            if blob_client.get_blob_properties().name != path:
+            if blob_client.blob_name != path:
                 raise ValueError("Invalid path for the configured SAS blob URL")
             return blob_client
 

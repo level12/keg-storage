@@ -6,6 +6,7 @@ import urllib.parse as urlparse
 from io import BytesIO
 from typing import Union
 from unittest import mock
+import urllib.parse
 
 import arrow
 import pytest
@@ -49,15 +50,17 @@ class TestAzureStorageBasics:
 
     @mock.patch.object(BlobClient, "from_blob_url")
     def test_construct_with_blob_url(self, m_from_blob_url: mock.MagicMock):
-        m_get_blob_properties = m_from_blob_url.return_value.get_blob_properties
-        m_get_blob_properties.return_value = BlobProperties(name="inbox/message.txt")
+        blob_name = "inbox/message.txt"
+        escaped_blob_name = urllib.parse.quote("inbox/message.txt", safe="")
+        sas_blob_url = f"https://foo.blob.core.windows.net/test/{escaped_blob_name}?sp=cw"
 
-        sas_blob_url = "https://foo.blob.core.windows.net/test/inbox/message.txt?sp=cw"
+        # Set this attribute on the mock client, because it is used for path validation.
+        m_from_blob_url.return_value.blob_name = blob_name
+
         storage = backends.AzureStorage(sas_blob_url=sas_blob_url)
-        storage.upload(BytesIO(b"hello"), "inbox/message.txt")
+        storage.upload(BytesIO(b"hello"), blob_name)
 
         m_from_blob_url.assert_called_once_with(sas_blob_url)
-        m_get_blob_properties.assert_called_once()
 
         # Make sure path validation is working.
         with pytest.raises(ValueError, match="Invalid path for the configured SAS blob URL"):
