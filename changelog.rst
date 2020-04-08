@@ -1,6 +1,14 @@
 Changelog
 =========
 
+0.5.1 released 2020-04-08
+-------------------------
+
+- Fix Version Import (fb162f7_)
+
+.. _fb162f7: https://github.com/level12/keg-storage/commit/fb162f7
+
+
 0.5.0 released 2020-04-08
 -------------------------
 
