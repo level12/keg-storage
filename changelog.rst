@@ -1,6 +1,22 @@
 Changelog
 =========
 
+0.5.0 released 2020-04-08
+-------------------------
+
+- Enable AzureStorage to take a blob SAS URL (8e6e478_)
+- Allow AzureStorage to be used with a container SAS URL (#28) (f405d21_)
+- Add support for download and upload progress callbacks (#34) (468fec8_)
+- Fix config variable naming (#33) (9720e63_)
+- Make aws dependencies optional (a2146d1_)
+
+.. _8e6e478: https://github.com/level12/keg-storage/commit/8e6e478
+.. _f405d21: https://github.com/level12/keg-storage/commit/f405d21
+.. _468fec8: https://github.com/level12/keg-storage/commit/468fec8
+.. _9720e63: https://github.com/level12/keg-storage/commit/9720e63
+.. _a2146d1: https://github.com/level12/keg-storage/commit/a2146d1
+
+
 0.4.4 released 2020-01-29
 -------------------------
 
