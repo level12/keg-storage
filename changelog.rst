@@ -1,6 +1,14 @@
 Changelog
 =========
 
+0.5.2 released 2020-04-28
+-------------------------
+
+- Fix Azure SAS blob upload link permissions (d7a1653_)
+
+.. _d7a1653: https://github.com/level12/keg-storage/commit/d7a1653
+
+
 0.5.1 released 2020-04-08
 -------------------------
 
