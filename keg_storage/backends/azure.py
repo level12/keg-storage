@@ -285,7 +285,7 @@ class AzureStorage(base.StorageBackend):
         """
         return self._create_sas_url(
             path=path,
-            sas_permissions='c',
+            sas_permissions='cw',
             expire=expire,
             ip=ip,
         )
