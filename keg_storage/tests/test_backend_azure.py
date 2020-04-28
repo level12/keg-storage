@@ -261,10 +261,11 @@ class TestAzureStorageUtilities:
     ])
     def test_upload_url(self, expire: Union[arrow.Arrow, datetime.datetime]):
         storage = create_storage()
-        url = storage.create_upload_url(
-            'abc/def.txt',
-            expire=expire
-        )
+        with pytest.warns(DeprecationWarning):
+            url = storage.create_upload_url(
+                'abc/def.txt',
+                expire=expire
+            )
         parsed = urlparse.urlparse(url)
         assert parsed.netloc == 'foo.blob.core.windows.net'
         assert parsed.path == '/test/abc%2Fdef.txt'
@@ -274,22 +275,6 @@ class TestAzureStorageUtilities:
         assert qs['sp'] == ['cw']
         assert qs['sig']
         assert 'sip' not in qs
-
-        # with IP restriction
-        url = storage.create_upload_url(
-            'abc/def.txt',
-            expire=expire,
-            ip='127.0.0.1'
-        )
-        parsed = urlparse.urlparse(url)
-        assert parsed.netloc == 'foo.blob.core.windows.net'
-        assert parsed.path == '/test/abc%2Fdef.txt'
-        qs = urlparse.parse_qs(parsed.query)
-
-        assert qs['se'] == ['2019-01-02T03:04:05Z']
-        assert qs['sp'] == ['cw']
-        assert qs['sig']
-        assert qs['sip'] == ['127.0.0.1']
 
     @pytest.mark.parametrize('expire', [
         arrow.get(2019, 1, 2, 3, 4, 5),
@@ -297,10 +282,11 @@ class TestAzureStorageUtilities:
     ])
     def test_download_url(self, expire: Union[arrow.Arrow, datetime.datetime]):
         storage = create_storage()
-        url = storage.create_download_url(
-            'abc/def.txt',
-            expire=expire
-        )
+        with pytest.warns(DeprecationWarning):
+            url = storage.create_download_url(
+                'abc/def.txt',
+                expire=expire
+            )
         parsed = urlparse.urlparse(url)
         assert parsed.netloc == 'foo.blob.core.windows.net'
         assert parsed.path == '/test/abc%2Fdef.txt'
@@ -311,12 +297,24 @@ class TestAzureStorageUtilities:
         assert qs['sig']
         assert 'sip' not in qs
 
-        # with IP restriction
+    @pytest.mark.parametrize('expire', [
+        arrow.get(2019, 1, 2, 3, 4, 5),
+        datetime.datetime(2019, 1, 2, 3, 4, 5)
+    ])
+    @pytest.mark.parametrize('ops,perms', [
+        (base.ShareLinkOperation.download, 'r'),
+        (base.ShareLinkOperation.upload, 'cw'),
+        (base.ShareLinkOperation.remove, 'd'),
+        (base.ShareLinkOperation.download | base.ShareLinkOperation.upload, 'rcw'),
+        (base.ShareLinkOperation.upload | base.ShareLinkOperation.remove, 'cwd'),
+    ])
+    def test_link_to(self, expire: Union[arrow.Arrow, datetime.datetime],
+                     ops: base.ShareLinkOperation, perms: str):
         storage = create_storage()
-        url = storage.create_download_url(
+        url = storage.link_to(
             'abc/def.txt',
-            expire=expire,
-            ip='127.0.0.1'
+            operation=ops,
+            expire=expire
         )
         parsed = urlparse.urlparse(url)
         assert parsed.netloc == 'foo.blob.core.windows.net'
@@ -324,9 +322,9 @@ class TestAzureStorageUtilities:
         qs = urlparse.parse_qs(parsed.query)
 
         assert qs['se'] == ['2019-01-02T03:04:05Z']
-        assert qs['sp'] == ['r']
+        assert qs['sp'] == [perms]
         assert qs['sig']
-        assert qs['sip'] == ['127.0.0.1']
+        assert 'sip' not in qs
 
     def test_sas_create_container_url(self):
         storage = backends.AzureStorage(
@@ -336,13 +334,14 @@ class TestAzureStorageUtilities:
         with pytest.raises(ValueError, match="Cannot create a SAS URL without account credentials"):
             storage.create_container_url(arrow.get(2019, 1, 2, 3, 4, 5))
 
-    def test_sas_create_upload_url(self):
+    def test_sas_link_to(self):
         storage = backends.AzureStorage(
             **{"sas_container_url": "https://foo.blob.core.windows.net/test?sp=rwdl"}
         )
 
         with pytest.raises(ValueError, match="Cannot create a SAS URL without account credentials"):
-            storage.create_upload_url("foo/bar.txt", arrow.get(2019, 1, 2, 3, 4, 5))
+            storage.link_to("foo/bar.txt", backends.ShareLinkOperation.upload,
+                            arrow.get(2019, 1, 2, 3, 4, 5))
 
     @pytest.mark.parametrize('expire', [
         arrow.get(2019, 1, 2, 3, 4, 5),

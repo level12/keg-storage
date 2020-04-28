@@ -1,6 +1,9 @@
 import logging
 import tempfile
+import typing
+from datetime import datetime
 
+import arrow
 from blazeutils.helpers import ensure_list
 
 try:
@@ -82,3 +85,16 @@ def reencrypt(storage, path, old_key, new_key):
 
         storage.put(new_key_local.name, path)
         log.info('Re-encryption complete for {}.'.format(path))
+
+
+def expire_time_to_seconds(
+        expire_time: typing.Union[arrow.Arrow, datetime],
+        *,
+        now: typing.Callable[[], arrow.Arrow] = arrow.utcnow
+):
+    _now = now()
+    if isinstance(expire_time, datetime):
+        expire_time = arrow.get(expire_time)
+    if expire_time < _now:
+        raise ValueError('Expiration time is in the past')
+    return (expire_time - _now).total_seconds()

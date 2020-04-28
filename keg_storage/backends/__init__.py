@@ -6,6 +6,9 @@ from .base import (
     ProgressCallback,
     RemoteFile,
     StorageBackend,
+    InternalLinksStorageBackend,
+    InternalLinkTokenData,
+    ShareLinkOperation,
 )
 from .filesystem import (
     LocalFSStorage,
@@ -22,6 +25,9 @@ __all__ = [
     "filesystem",
     "LocalFSStorage",
     "LocalFSError",
+    "InternalLinksStorageBackend",
+    "InternalLinkTokenData",
+    "ShareLinkOperation",
 ]
 
 if find_spec('boto3') is not None:

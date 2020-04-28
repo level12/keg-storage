@@ -4,12 +4,15 @@ import os
 from datetime import date
 from unittest import mock
 
+import arrow
 import click.testing
+import freezegun
+import pytest
 from blazeutils.containers import LazyDict
 from flask import current_app
 from keg.testing import CLIBase, invoke_command
 
-from keg_storage import FileNotFoundInStorageError
+from keg_storage import FileNotFoundInStorageError, ShareLinkOperation
 
 
 @mock.patch.object(current_app.storage, 'get_interface', autospec=True, spec_set=True)
@@ -165,27 +168,60 @@ class TestDelete(CLIBase):
 
 
 @mock.patch.object(current_app.storage, 'get_interface', autospec=True, spec_set=True)
-class TestLinkFor(CLIBase):
-    cmd_name = 'storage --location loc link_for'
+class TestLink(CLIBase):
+    cmd_name = 'storage --location loc link'
 
+    @freezegun.freeze_time('2020-04-27')
     def test_link_for_default_expiration(self, m_get_interface):
         m_link = mock.MagicMock(return_value='http://example.com/foo/bar')
-        m_get_interface.return_value.link_for = m_link
+        m_get_interface.return_value.link_to = m_link
 
         results = self.invoke('foo/bar')
         assert results.output == 'http://example.com/foo/bar\n'
-        m_link.assert_called_once_with('foo/bar', 3600)
+        m_link.assert_called_once_with(
+            path='foo/bar',
+            operation=ShareLinkOperation.download,
+            expire=arrow.get(2020, 4, 27, 1)
+        )
 
+    @freezegun.freeze_time('2020-04-27')
     def test_link_for_expiration_given(self, m_get_interface):
         m_link = mock.MagicMock(return_value='http://example.com/foo/bar')
-        m_get_interface.return_value.link_for = m_link
+        m_get_interface.return_value.link_to = m_link
 
         results = self.invoke('-e', '100', 'foo/bar')
         assert results.output == 'http://example.com/foo/bar\n'
-        m_link.assert_called_once_with('foo/bar', 100)
+        m_link.assert_called_once_with(
+            path='foo/bar',
+            operation=ShareLinkOperation.download,
+            expire=arrow.get(2020, 4, 27, 0, 1, 40)
+        )
+
+    @pytest.mark.parametrize('flags,ops', [
+        (['--download'], ShareLinkOperation.download),
+        (['--upload'], ShareLinkOperation.download | ShareLinkOperation.upload),
+        (['--no-download', '--upload'], ShareLinkOperation.upload),
+        (['--no-download', '--delete'], ShareLinkOperation.remove),
+        (['--no-download', '--upload', '--delete'],
+         ShareLinkOperation.upload | ShareLinkOperation.remove),
+        (['--upload', '--delete'],
+         ShareLinkOperation.download | ShareLinkOperation.upload | ShareLinkOperation.remove),
+    ])
+    @freezegun.freeze_time('2020-04-27')
+    def test_link_for_operations(self, m_get_interface, flags, ops):
+        m_link = mock.MagicMock(return_value='http://example.com/foo/bar')
+        m_get_interface.return_value.link_to = m_link
+
+        results = self.invoke(*flags, 'foo/bar')
+        assert results.output == 'http://example.com/foo/bar\n'
+        m_link.assert_called_once_with(
+            path='foo/bar',
+            operation=ops,
+            expire=arrow.get(2020, 4, 27, 1)
+        )
 
     def test_link_for_error(self, m_get_interface):
-        m_get_interface.return_value.link_for.side_effect = ValueError('Some error')
+        m_get_interface.return_value.link_to.side_effect = ValueError('Some error')
 
         results = self.invoke('foo/bar', exit_code=1)
         assert results.output == 'Some error\nAborted!\n'

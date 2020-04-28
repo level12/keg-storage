@@ -33,6 +33,7 @@ setup(
         'arrow',
         'humanize',
         'BlazeUtils',
+        'itsdangerous',
     ],
     extras_require={
         'sftp': [
@@ -52,6 +53,7 @@ setup(
             'boto3',
             'flake8',
             'flask_webtest',
+            'freezegun',
             'paramiko',
             'pytest',
             'pytest-coverage',

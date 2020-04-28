@@ -1,11 +1,12 @@
 import functools
 
+import arrow
 import click
 import humanize
 from flask.cli import with_appcontext
 
 from keg_storage import utils
-from keg_storage.backends.base import FileNotFoundInStorageError
+from keg_storage.backends.base import FileNotFoundInStorageError, ShareLinkOperation
 
 
 @click.group('_storage')
@@ -92,15 +93,30 @@ def storage_delete(ctx, path):
     click.echo("Deleted {path}.".format(path=path), err=True)
 
 
-@storage.command('link_for')
+@storage.command('link')
 @click.argument('path')
 @click.option('--expiration', '-e', default=3600,
               help="Expiration time (in seconds) of the link, defaults to 1 hours")
+@click.option('--download/--no-download', is_flag=True, default=True)
+@click.option('--upload/--no-upload', is_flag=True, default=False)
+@click.option('--delete/--no-delete', is_flag=True, default=False)
 @click.pass_context
-def storage_link_for(ctx, path, expiration):
+def storage_link_for(ctx, path, expiration, download, upload, delete):
+
+    ops = ShareLinkOperation(0)
+    if download:
+        ops |= ShareLinkOperation.download
+    if upload:
+        ops |= ShareLinkOperation.upload
+    if delete:
+        ops |= ShareLinkOperation.remove
 
     try:
-        retval = ctx.obj.data['storage'].link_for(path, expiration)
+        retval = ctx.obj.data['storage'].link_to(
+            path=path,
+            operation=ops,
+            expire=arrow.utcnow().shift(seconds=expiration),
+        )
     except Exception as e:
         click.echo(str(e))
         ctx.abort()

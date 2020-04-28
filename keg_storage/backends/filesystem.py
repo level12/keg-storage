@@ -3,6 +3,7 @@ import string
 from operator import attrgetter
 from typing import (
     List,
+    Optional,
     Union,
 )
 
@@ -37,15 +38,25 @@ class LocalFSFile(base.RemoteFile):
         self.fp.close()
 
 
-class LocalFSStorage(base.StorageBackend):
+class LocalFSStorage(base.InternalLinksStorageBackend):
     disallowed_path_chars = frozenset(set('~?*' + string.whitespace) - {' '})
 
-    def __init__(self, root: Union[str, pathlib.Path], name: str = None):
+    def __init__(
+            self,
+            root: Union[str, pathlib.Path],
+            linked_endpoint: Optional[str] = None,
+            secret_key: Optional[bytes] = None,
+            name: str = None
+    ):
         self.root = pathlib.Path(root).resolve()
         if not self.root.is_dir():
             raise LocalFSError('Storage root does not exist or is not a directory')
 
-        super().__init__(name=name if name is not None else f'fs-{root.name}')
+        super().__init__(
+            linked_endpoint=linked_endpoint,
+            secret_key=secret_key,
+            name=name if name is not None else f'fs-{root.name}'
+        )
 
     def _is_under_root(self, path: pathlib.Path) -> bool:
         try:

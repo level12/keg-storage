@@ -1,8 +1,11 @@
 import enum
 import typing
+from datetime import datetime
 
 import arrow
+import itsdangerous
 
+from keg_storage.utils import expire_time_to_seconds
 
 ProgressCallback = typing.Callable[[int], None]
 
@@ -23,7 +26,7 @@ class FileMode(enum.Flag):
         return f'{s}b'
 
     @classmethod
-    def as_mode(cls, obj) -> "FileMode":
+    def as_mode(cls, obj: typing.Union[str, 'FileMode']) -> 'FileMode':
         if isinstance(obj, cls):
             return obj
         if not isinstance(obj, str):
@@ -35,6 +38,35 @@ class FileMode(enum.Flag):
         if 'w' in obj:
             mode |= cls.write
         return mode
+
+
+class ShareLinkOperation(enum.Flag):
+    download = enum.auto()
+    upload = enum.auto()
+    remove = enum.auto()
+
+    @classmethod
+    def as_operation(cls, obj: typing.Union[str, 'ShareLinkOperation']) -> 'ShareLinkOperation':
+        if isinstance(obj, cls):
+            return obj
+        if not isinstance(obj, str):
+            raise ValueError(f'as_operation() accepts only {cls.__name__} or str arguments')
+
+        op = cls(0)
+        if 'd' in obj:
+            op |= cls.download
+        if 'u' in obj:
+            op |= cls.upload
+        if 'r' in obj:
+            op |= cls.remove
+        return op
+
+    def __str__(self):
+        return ''.join([
+            'd' if self & ShareLinkOperation.download else '',
+            'u' if self & ShareLinkOperation.upload else '',
+            'r' if self & ShareLinkOperation.remove else '',
+        ])
 
 
 class RemoteFile:
@@ -126,6 +158,17 @@ class StorageBackend:
         """
         raise NotImplementedError()
 
+    def link_to(
+            self,
+            path: str,
+            operation: typing.Union[ShareLinkOperation, str],
+            expire: typing.Union[arrow.Arrow, datetime]
+    ) -> str:
+        """
+        Returns a URL allowing direct the specified operations to be performed on the given path
+        """
+        raise NotImplementedError()
+
     def get(self, path: str, dest: str) -> None:
         """
         Copies a remote file at `path` to the `dest` path given on the local filesystem.
@@ -189,6 +232,135 @@ class StorageBackend:
 
     def __str__(self):
         return self.__class__.__name__
+
+
+class InternalLinkTokenData(typing.NamedTuple):
+    path: str
+    operations: ShareLinkOperation
+
+    def serialize(self) -> typing.Mapping[str, str]:
+        return {
+            'key': self.path,
+            'op': str(self.operations)
+        }
+
+    @classmethod
+    def deserialize(cls, data: typing.Mapping[str, str]) -> 'InternalLinkTokenData':
+        return cls(
+            path=data['key'],
+            operations=ShareLinkOperation.as_operation(data['op'])
+        )
+
+    @property
+    def allow_upload(self) -> bool:
+        return ShareLinkOperation.upload in self.operations
+
+    @property
+    def allow_download(self) -> bool:
+        return ShareLinkOperation.download in self.operations
+
+    @property
+    def allow_remove(self) -> bool:
+        return ShareLinkOperation.remove in self.operations
+
+
+class InternalLinksStorageBackend(StorageBackend):
+    """
+    Base class for storage backends that do not have their own direct method of creating
+    download/upload/deletion URLs. To use the link_to feature for such backends, the app must
+    provide it's own endpoint to handle the requests.
+    See plugin.LinkViewMixin for a base implementation of such an endpoint.
+    """
+
+    def __init__(
+            self,
+            *,
+            linked_endpoint: typing.Optional[str],
+            secret_key: typing.Optional[bytes],
+            name: str,
+    ):
+        """
+        :param name: Backend name
+        :param linked_endpoint: The endpoint that the app uses to handle requests to the link_to URL
+        :param secret_key: A secret value used to sign the token in the URL
+        """
+        super().__init__(name=name)
+        self.linked_endpoint = linked_endpoint
+        self.secret_key = secret_key
+
+    def create_link_token(
+            self,
+            *,
+            path: str,
+            operation: typing.Union[ShareLinkOperation, str],
+            expire: typing.Union[arrow.Arrow, datetime]
+    ):
+        """
+        Create a signed JWT authorizing the user to perform the specified operations
+        """
+        if self.secret_key is None:
+            raise ValueError('Backend must be configured with secret_key to use this feature')
+
+        signer = itsdangerous.TimedJSONWebSignatureSerializer(
+            secret_key=self.secret_key,
+            expires_in=int(expire_time_to_seconds(expire)),
+            salt=self.name,
+        )
+        token_data = InternalLinkTokenData(
+            path=path,
+            operations=operation
+        )
+        return signer.dumps(token_data.serialize())
+
+    def deserialize_link_token(self, token: str) -> InternalLinkTokenData:
+        """
+        Verify a JWT and extract the path and allowed operations
+        """
+        if self.secret_key is None:
+            raise ValueError('Backend must be configured with secret_key to use this feature')
+
+        signer = itsdangerous.TimedJSONWebSignatureSerializer(
+            secret_key=self.secret_key,
+            salt=self.name,
+        )
+        data = signer.loads(token)
+
+        return InternalLinkTokenData.deserialize(data)
+
+    def link_to(
+            self,
+            path: str,
+            operation: typing.Union[ShareLinkOperation, str],
+            expire: typing.Union[arrow.Arrow, datetime]
+    ) -> str:
+        """
+        Create a URL pointing to the given `linked_endpoint` containing a JWT authorizing the user
+        user to perform the given operations.
+
+        This is currently only implemented for flask based apps but you may override this method in
+        your own subclass to support other frameworks.
+
+        To use this method you must provide `secret_key` and `linked_endpoint` to the constructor.
+        """
+        try:
+            import flask
+        except ImportError:
+            raise NotImplementedError(
+                'This feature is currently only implemented for flask apps. '
+                'You may override the link_to method to generate links for your framework.'
+            )
+
+        if self.secret_key is None or self.linked_endpoint is None:
+            raise ValueError(
+                'Backend must be configured with linked_endpoint and secret_key to use this feature'
+            )
+
+        token = self.create_link_token(
+            path=path,
+            operation=operation,
+            expire=expire
+        )
+        return flask.url_for(self.linked_endpoint, token=token.decode(), _external=True)
 
 
 class FileNotFoundInStorageError(Exception):
