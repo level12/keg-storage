@@ -271,7 +271,7 @@ class TestAzureStorageUtilities:
         qs = urlparse.parse_qs(parsed.query)
 
         assert qs['se'] == ['2019-01-02T03:04:05Z']
-        assert qs['sp'] == ['c']
+        assert qs['sp'] == ['cw']
         assert qs['sig']
         assert 'sip' not in qs
 
@@ -287,7 +287,7 @@ class TestAzureStorageUtilities:
         qs = urlparse.parse_qs(parsed.query)
 
         assert qs['se'] == ['2019-01-02T03:04:05Z']
-        assert qs['sp'] == ['c']
+        assert qs['sp'] == ['cw']
         assert qs['sig']
         assert qs['sip'] == ['127.0.0.1']
 
