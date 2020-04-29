@@ -60,6 +60,9 @@ exclude_patterns = []
 
 master_doc = 'index'
 
+# Autodoc settings.
+autoclass_content = 'both'
+
 
 # -- Options for HTML output -------------------------------------------------
 
