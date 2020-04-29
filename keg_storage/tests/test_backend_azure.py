@@ -267,7 +267,7 @@ class TestAzureStorageUtilities:
         )
         parsed = urlparse.urlparse(url)
         assert parsed.netloc == 'foo.blob.core.windows.net'
-        assert parsed.path == '/test/abc/def.txt'
+        assert parsed.path == '/test/abc%2Fdef.txt'
         qs = urlparse.parse_qs(parsed.query)
 
         assert qs['se'] == ['2019-01-02T03:04:05Z']
@@ -283,7 +283,7 @@ class TestAzureStorageUtilities:
         )
         parsed = urlparse.urlparse(url)
         assert parsed.netloc == 'foo.blob.core.windows.net'
-        assert parsed.path == '/test/abc/def.txt'
+        assert parsed.path == '/test/abc%2Fdef.txt'
         qs = urlparse.parse_qs(parsed.query)
 
         assert qs['se'] == ['2019-01-02T03:04:05Z']
@@ -303,7 +303,7 @@ class TestAzureStorageUtilities:
         )
         parsed = urlparse.urlparse(url)
         assert parsed.netloc == 'foo.blob.core.windows.net'
-        assert parsed.path == '/test/abc/def.txt'
+        assert parsed.path == '/test/abc%2Fdef.txt'
         qs = urlparse.parse_qs(parsed.query)
 
         assert qs['se'] == ['2019-01-02T03:04:05Z']
@@ -320,7 +320,7 @@ class TestAzureStorageUtilities:
         )
         parsed = urlparse.urlparse(url)
         assert parsed.netloc == 'foo.blob.core.windows.net'
-        assert parsed.path == '/test/abc/def.txt'
+        assert parsed.path == '/test/abc%2Fdef.txt'
         qs = urlparse.parse_qs(parsed.query)
 
         assert qs['se'] == ['2019-01-02T03:04:05Z']

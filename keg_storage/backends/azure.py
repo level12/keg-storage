@@ -321,7 +321,8 @@ class AzureStorage(base.StorageBackend):
             expiry=expire,
             ip=ip
         )
-        url = urllib.parse.urljoin(self.account_url, '{}/{}'.format(self.bucket, path))
+        escaped_path = urllib.parse.quote(path, safe="")
+        url = urllib.parse.urljoin(self.account_url, '{}/{}'.format(self.bucket, escaped_path))
         return '{}?{}'.format(url, token)
 
     def create_container_url(self, expire: typing.Union[arrow.Arrow, datetime],
