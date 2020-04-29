@@ -1,6 +1,14 @@
 Changelog
 =========
 
+0.5.3 released 2020-04-29
+-------------------------
+
+- Properly escape paths for SAS token generation (9f126c8_)
+
+.. _9f126c8: https://github.com/level12/keg-storage/commit/9f126c8
+
+
 0.5.2 released 2020-04-28
 -------------------------
 
