@@ -1,5 +1,6 @@
 import base64
 import datetime
+import hashlib
 import re
 import string
 import urllib.parse as urlparse
@@ -142,12 +143,27 @@ class TestAzureStorageOperations:
         m_stream = m_blob_client.return_value.download_blob
         m_stream.return_value.chunks.return_value = iter(chunks)
 
+        # Read without validation.
         with storage.open('foo', base.FileMode.read) as f:
             assert f.read(1) == b'0'
             assert f.read(2) == b'12'
             assert f.read(10) == b'3456789abc'
             assert f.read(30) == b'defghijklmnopqrstuvwxyzABCDEFG'
             assert f.read(30) == b'HIJKLMNOPQRSTUVWXYZ'
+        m_stream.assert_called_once_with(validate_content=False)
+
+        # Reset data.
+        m_stream.reset_mock()
+        m_stream.return_value.chunks.return_value = iter(chunks)
+
+        # Read with validation.
+        with storage.open('foo', base.FileMode.read, validate_content=True) as f:
+            assert f.read(1) == b'0'
+            assert f.read(2) == b'12'
+            assert f.read(10) == b'3456789abc'
+            assert f.read(30) == b'defghijklmnopqrstuvwxyzABCDEFG'
+            assert f.read(30) == b'HIJKLMNOPQRSTUVWXYZ'
+        m_stream.assert_called_once_with(validate_content=True)
 
     @mock.patch('keg_storage.backends.azure.os.urandom', autospec=True, spec_set=True)
     def test_write_operations(self, m_urandom: mock.MagicMock, m_blob_client: mock.MagicMock):
@@ -221,6 +237,56 @@ class TestAzureStorageOperations:
             block_id(b'\x00\x00\x00\x00\x00\x00\x00\x02')
         ]
         assert blob.getvalue() == b'abcdefghijklmnopqrstuvwxyz12'
+
+    def test_write_with_md5(self, m_blob_client: mock.MagicMock):
+        storage = create_storage(chunk_size=10)
+
+        block_data = {}
+        blob = BytesIO()
+
+        def mock_stage_block(**kwargs):
+            block_id = kwargs['block_id']
+            assert block_id not in block_data
+            block_data[block_id] = kwargs['data']
+
+        def mock_commit_block_list(**kwargs):
+            blocks = kwargs['block_list']
+            for b in blocks:
+                blob.write(block_data[b.id])
+
+        m_stage_block = m_blob_client.return_value.stage_block
+        m_stage_block.side_effect = mock_stage_block
+
+        m_commit_list = m_blob_client.return_value.commit_block_list
+        m_commit_list.side_effect = mock_commit_block_list
+
+        data = b"abcdefghijklmnopqrstuvwxyz"
+        h = hashlib.md5()
+        h.update(data)
+
+        # Write without MD5 digest.
+        with storage.open('foo', base.FileMode.write) as f:
+            f.write(data)
+
+        assert blob.getvalue() == data
+        m_commit_list.assert_called_once()
+        _, kwargs = m_commit_list.call_args
+        assert kwargs["content_settings"] is None
+
+        # Reset data.
+        block_data.clear()
+        blob.truncate(0)
+        blob.seek(0)
+        m_commit_list.reset_mock()
+
+        # Now write with MD5 digest.
+        with storage.open('foo', base.FileMode.write, md5_digest=h.digest()) as f:
+            f.write(data)
+
+        assert blob.getvalue() == data
+        m_commit_list.assert_called_once()
+        _, kwargs = m_commit_list.call_args
+        assert kwargs["content_settings"]["content_md5"] == h.digest()
 
     def test_write_nothing(self, m_blob_client: mock.MagicMock):
         storage = create_storage()

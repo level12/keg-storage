@@ -11,6 +11,7 @@ from azure.storage.blob import (
     BlobClient,
     BlobServiceClient,
     ContainerClient,
+    ContentSettings,
     generate_blob_sas,
     generate_container_sas,
 )
@@ -47,9 +48,10 @@ class AzureWriter(AzureFile):
     """
     We are using Azure Block Blobs for all operations. The process for writing them is substantially
     similar to that of S3 with a couple of differences.
-        1. We generate the IDs for the blocks
-        2. There is no separate call to instantiate the upload. The first call to put_block will
-           create the blob.
+
+    1. We generate the IDs for the blocks
+    2. There is no separate call to instantiate the upload. The first call to put_block will create
+       the blob.
     """
 
     max_block_size: ClassVar[int] = 100 * 1024 * 1024
@@ -59,7 +61,12 @@ class AzureWriter(AzureFile):
         mode: base.FileMode,
         blob_client: BlobClient,
         chunk_size=DEFAULT_CHUNK_SIZE,
+        md5_digest: Optional[bytes] = None,
     ):
+        """
+        :param md5_digest: If provided, will be used to set the Content-MD5 property on the uploaded
+            blob. The value should be the actual digest bytes.
+        """
         if chunk_size is not None:
             # chunk_size cannot be larger than max_block_size due to API restrictions
             chunk_size = min(chunk_size, self.max_block_size)
@@ -69,12 +76,15 @@ class AzureWriter(AzureFile):
             chunk_size=chunk_size,
         )
         self.blocks: List[BlobBlock] = []
+        self.md5_digest = md5_digest
 
     def _gen_block_id(self) -> str:
         """
         Generate a unique ID for the block. This is meant to be opaque but it is generated from:
-            1. The index of the block as an 64 bit unsigned big endian integer
-            2. 40 bytes of random data
+
+        1. The index of the block as an 64 bit unsigned big endian integer
+        2. 40 bytes of random data
+
         The two parts are concatenated and base64 encoded giving us 64 bytes which is the maximum
         Azure allows.
         """
@@ -98,7 +108,11 @@ class AzureWriter(AzureFile):
         self.buffer = self.buffer[self.chunk_size:]
 
     def _finalize(self):
-        self.client.commit_block_list(block_list=self.blocks)
+        content_settings: Optional[ContentSettings] = None
+        if self.md5_digest:
+            content_settings = ContentSettings(content_md5=self.md5_digest)
+
+        self.client.commit_block_list(block_list=self.blocks, content_settings=content_settings)
         self.blocks = []
 
     def write(self, data: bytes) -> None:
@@ -119,6 +133,7 @@ class AzureReader(AzureFile):
     """
     The Azure reader uses byte ranged API calls to fill a local buffer to avoid lots of API overhead
     for small read sizes.
+
     """
 
     def __init__(
@@ -126,13 +141,18 @@ class AzureReader(AzureFile):
         mode: base.FileMode,
         blob_client: BlobClient,
         chunk_size=DEFAULT_CHUNK_SIZE,
+        validate_content=False,
     ):
+        """
+        :param validate_content: If set to true, the downloaded blob will be validated using the
+            stored Content-MD5 property.
+        """
         super().__init__(
             mode=mode,
             blob_client=blob_client,
             chunk_size=chunk_size,
         )
-        self.stream = self.client.download_blob()
+        self.stream = self.client.download_blob(validate_content=validate_content)
         self.chunks = self.stream.chunks()
 
     def _read_from_buffer(self, max_size):
@@ -253,8 +273,12 @@ class AzureStorage(base.StorageBackend):
 
         return [construct_entry(blob) for blob in list_iter]
 
-    def open(self, path: str, mode: typing.Union[base.FileMode, str]) -> AzureFile:
+    def open(self, path: str, mode: typing.Union[base.FileMode, str], **kwargs) -> AzureFile:
         mode = base.FileMode.as_mode(mode)
+
+        # Look for additional kwargs.
+        md5_digest: Optional[bytes] = kwargs.get("md5_digest")
+        validate_content = kwargs.get("validate_content", False)
 
         path = self._clean_path(path)
         blob_client = self._create_blob_client(path)
@@ -262,9 +286,19 @@ class AzureStorage(base.StorageBackend):
         if (mode & base.FileMode.read) and (mode & base.FileMode.write):
             raise NotImplementedError('Read+write mode not supported by the Azure backend')
         elif mode & base.FileMode.write:
-            return AzureWriter(mode=mode, blob_client=blob_client, chunk_size=self.chunk_size)
+            return AzureWriter(
+                mode=mode,
+                blob_client=blob_client,
+                chunk_size=self.chunk_size,
+                md5_digest=md5_digest,
+            )
         elif mode & base.FileMode.read:
-            return AzureReader(mode=mode, blob_client=blob_client, chunk_size=self.chunk_size)
+            return AzureReader(
+                mode=mode,
+                blob_client=blob_client,
+                chunk_size=self.chunk_size,
+                validate_content=validate_content,
+            )
         else:
             raise ValueError('Unsupported mode. Accepted modes are FileMode.read or FileMode.write')
 

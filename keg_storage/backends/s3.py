@@ -233,7 +233,7 @@ class S3Storage(StorageBackend):
     def _create_writer(self, path):
         return S3Writer(self.bucket, path, self.client)
 
-    def open(self, path: str, mode: typing.Union[FileMode, str]):
+    def open(self, path: str, mode: typing.Union[FileMode, str], **kwargs):
         mode = FileMode.as_mode(mode)
 
         if mode & FileMode.read and mode & FileMode.write:

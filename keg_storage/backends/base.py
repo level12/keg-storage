@@ -113,7 +113,7 @@ class StorageBackend:
         """
         raise NotImplementedError()
 
-    def open(self, path: str, mode: typing.Union[FileMode, str]) -> RemoteFile:
+    def open(self, path: str, mode: typing.Union[FileMode, str], **kwargs) -> RemoteFile:
         """
         Returns a instance of RemoteFile for the given `path` that can be used for
         reading and/or writing depending on the `mode` given.
@@ -138,7 +138,8 @@ class StorageBackend:
         path: str,
         file_obj: typing.IO,
         *,
-        progress_callback: typing.Optional[ProgressCallback] = None
+        progress_callback: typing.Optional[ProgressCallback] = None,
+        **kwargs,
     ):
         """
         Copies a remote file at `path` to a file-like object `file_obj`.
@@ -148,7 +149,7 @@ class StorageBackend:
         """
         bytes_read = 0
 
-        with self.open(path, FileMode.read) as infile:
+        with self.open(path, FileMode.read, **kwargs) as infile:
             for chunk in infile.iter_chunks():
                 file_obj.write(chunk)
                 bytes_read += len(chunk)
@@ -167,7 +168,8 @@ class StorageBackend:
         file_obj: typing.IO,
         path: str,
         *,
-        progress_callback: typing.Optional[ProgressCallback] = None
+        progress_callback: typing.Optional[ProgressCallback] = None,
+        **kwargs,
     ):
         """
         Copies the contents of a file-like object `file_obj` to a remote file at `path`
@@ -178,7 +180,7 @@ class StorageBackend:
         bytes_written = 0
         buffer_size = 5 * 1024 * 1024
 
-        with self.open(path, FileMode.write) as outfile:
+        with self.open(path, FileMode.write, **kwargs) as outfile:
             buf = file_obj.read(buffer_size)
             while buf:
                 outfile.write(buf)
