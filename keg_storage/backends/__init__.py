@@ -7,6 +7,10 @@ from .base import (
     RemoteFile,
     StorageBackend,
 )
+from .filesystem import (
+    LocalFSStorage,
+    LocalFSError,
+)
 
 __all__ = [
     "FileMode",
@@ -15,6 +19,9 @@ __all__ = [
     "RemoteFile",
     "StorageBackend",
     "base",
+    "filesystem",
+    "LocalFSStorage",
+    "LocalFSError",
 ]
 
 if find_spec('boto3') is not None:
