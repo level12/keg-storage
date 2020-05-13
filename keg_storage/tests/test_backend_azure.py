@@ -334,9 +334,16 @@ class TestAzureStorageUtilities:
         with pytest.raises(ValueError, match="Cannot create a SAS URL without account credentials"):
             storage.create_container_url(arrow.get(2019, 1, 2, 3, 4, 5))
 
-    def test_sas_link_to(self):
+    @pytest.mark.parametrize('account,key', [
+        (None, 'foo'),
+        ('foo', None),
+        (None, None),
+    ])
+    def test_sas_link_to(self, account, key):
         storage = backends.AzureStorage(
-            **{"sas_container_url": "https://foo.blob.core.windows.net/test?sp=rwdl"}
+            account=account,
+            key=key,
+            sas_container_url='https://foo.blob.core.windows.net/test?sp=rwdl'
         )
 
         with pytest.raises(ValueError, match="Cannot create a SAS URL without account credentials"):

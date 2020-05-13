@@ -6,6 +6,7 @@ Backends
    :caption: Supported Backends:
 
    azure
+   filesystem
    s3
    sftp
    utils

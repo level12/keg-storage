@@ -49,9 +49,11 @@ class AzureWriter(AzureFile):
     """
     We are using Azure Block Blobs for all operations. The process for writing them is substantially
     similar to that of S3 with a couple of differences.
-        1. We generate the IDs for the blocks
-        2. There is no separate call to instantiate the upload. The first call to put_block will
-           create the blob.
+
+    1. We generate the IDs for the blocks
+    2. There is no separate call to instantiate the upload. The first call to put_block will create
+        the blob.
+
     """
 
     max_block_size: ClassVar[int] = 100 * 1024 * 1024
@@ -311,7 +313,7 @@ class AzureStorage(base.StorageBackend):
             operation: typing.Union[base.ShareLinkOperation, str],
             expire: typing.Union[arrow.Arrow, datetime],
     ) -> str:
-        if not self.account_url:
+        if not self.account_url or not self.key:
             raise ValueError('Cannot create a SAS URL without account credentials')
         path = self._clean_path(path)
         expire = expire.datetime if isinstance(expire, arrow.Arrow) else expire

@@ -3,7 +3,7 @@ S3 Backend
 
 .. autoclass:: keg_storage.backends.s3.S3Storage
     :members:
-
+    :inherited-members:
 
 .. autoclass:: keg_storage.backends.s3.S3Reader
     :members:

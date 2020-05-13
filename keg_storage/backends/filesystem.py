@@ -80,7 +80,7 @@ class LocalFSStorage(base.InternalLinksStorageBackend):
         resolved_path = self._resolve_path(path)
         if not self._is_under_root(resolved_path):
             # prevent escaping the root by including `..` or symlinks in `path`
-            raise LocalFSError(f'Invalid path')
+            raise LocalFSError('Invalid path')
 
         if not resolved_path.is_dir():
             raise LocalFSError(f'{path} does not exist or is not a directory')
@@ -113,7 +113,7 @@ class LocalFSStorage(base.InternalLinksStorageBackend):
         if not self._is_under_root(path):
             raise LocalFSError('Invalid path')
         if path.exists() and not self._is_file(path):
-            raise LocalFSError(f'Invalid path')
+            raise LocalFSError('Invalid path')
 
         mode = base.FileMode.as_mode(mode)
 
