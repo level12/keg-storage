@@ -1,6 +1,16 @@
 Changelog
 =========
 
+0.5.4 released 2020-05-14
+-------------------------
+
+- Support direct upload / download URL generation for all backends (6975227_)
+- Add a local filesystem backend (6242913_)
+
+.. _6975227: https://github.com/level12/keg-storage/commit/6975227
+.. _6242913: https://github.com/level12/keg-storage/commit/6242913
+
+
 0.5.3 released 2020-04-29
 -------------------------
 
