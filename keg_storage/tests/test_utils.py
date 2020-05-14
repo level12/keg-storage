@@ -1,6 +1,8 @@
 import io
+from datetime import datetime
 from unittest import mock
 
+import arrow
 import pytest
 
 try:
@@ -95,3 +97,27 @@ def test_reencrypt():
         utils.MissingDependencyException, match="Keg Elements is required for crypto operations"
     ):
         utils.reencrypt(None, "", "", "")
+
+
+class TestExpireTimeToSeconds:
+    def test_expire_time_in_the_past(self):
+        with pytest.raises(ValueError, match='Expiration time is in the past'):
+            utils.expire_time_to_seconds(
+                arrow.get(2020, 4, 26, 23, 59, 59),
+                now=lambda: arrow.get(2020, 4, 27)
+            )
+
+    @pytest.mark.parametrize('exp_time,expect', [
+        (arrow.get(2020, 4, 27, 0, 0, 1), 1),
+        (datetime(2020, 4, 27, 0, 0, 1), 1),
+        (arrow.get(2020, 4, 27, 0, 1, 0), 60),
+        (datetime(2020, 4, 27, 0, 1, 0), 60),
+        (arrow.get(2020, 4, 27, 1, 0, 0), 3600),
+        (datetime(2020, 4, 27, 1, 0, 0), 3600),
+    ])
+    def test_success(self, exp_time, expect):
+        seconds = utils.expire_time_to_seconds(
+            exp_time,
+            now=lambda: arrow.get(2020, 4, 27)
+        )
+        assert seconds == expect

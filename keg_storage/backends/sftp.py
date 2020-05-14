@@ -6,7 +6,7 @@ import arrow
 from paramiko import SSHClient
 
 from .base import (
-    StorageBackend,
+    InternalLinksStorageBackend,
     ListEntry,
     FileMode,
     RemoteFile,
@@ -43,7 +43,7 @@ class SFTPRemoteFile(RemoteFile):
         return self.file.write(data)
 
 
-class SFTPStorage(StorageBackend):
+class SFTPStorage(InternalLinksStorageBackend):
     def __init__(
             self,
             host,
@@ -52,9 +52,11 @@ class SFTPStorage(StorageBackend):
             known_hosts_fpath,
             allow_agent=False,
             look_for_keys=False,
-            name='sftp'
+            linked_endpoint=None,
+            secret_key=None,
+            name='sftp',
     ):
-        super().__init__(name)
+        super().__init__(name=name, linked_endpoint=linked_endpoint, secret_key=secret_key)
         self.host = host
         self.username = username
         self.key_filename = key_filename

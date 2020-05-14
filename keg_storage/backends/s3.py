@@ -1,16 +1,19 @@
 import typing
+from datetime import datetime
 
 import arrow
 import boto3
 from botocore.exceptions import ClientError
 
 from .base import (
+    ShareLinkOperation,
     StorageBackend,
     FileNotFoundInStorageError,
     ListEntry,
     RemoteFile,
     FileMode,
 )
+from ..utils import expire_time_to_seconds
 
 
 class S3FileBase(RemoteFile):
@@ -249,4 +252,37 @@ class S3Storage(StorageBackend):
         self.client.delete_object(
             Bucket=self.bucket,
             Key=path
+        )
+
+    def link_to(
+            self,
+            path: str,
+            operation: typing.Union[ShareLinkOperation, str],
+            expire: typing.Union[arrow.Arrow, datetime]
+    ) -> str:
+        operation = ShareLinkOperation.as_operation(operation)
+        if operation.name is None:
+            # This is a composite of multiple values which is not supported
+            raise NotImplementedError('S3 backends cannot generate a link for multiple operations')
+
+        extra_params = {}
+        if operation == ShareLinkOperation.download:
+            method = 'get_object'
+        elif operation == ShareLinkOperation.upload:
+            method = 'put_object'
+            extra_params = {'ContentType': 'application/octet-stream'}
+        elif operation == ShareLinkOperation.remove:
+            method = 'delete_object'
+        else:  # pragma: no cover
+            # This should be impossible to reach so long as all operations are covered above
+            raise ValueError('Unknown operation')
+
+        return self.client.generate_presigned_url(
+            ClientMethod=method,
+            ExpiresIn=int(expire_time_to_seconds(expire)),
+            Params={
+                'Bucket': self.bucket,
+                'Key': path,
+                **extra_params
+            },
         )

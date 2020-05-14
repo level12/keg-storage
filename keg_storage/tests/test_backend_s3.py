@@ -4,6 +4,7 @@ import re
 from unittest import mock
 
 import arrow
+import freezegun
 import pytest
 from botocore.exceptions import ClientError
 
@@ -12,6 +13,7 @@ from keg_storage.backends.base import (
     FileMode,
     FileNotFoundInStorageError,
     ListEntry,
+    ShareLinkOperation,
 )
 
 
@@ -315,3 +317,35 @@ class TestS3Storage:
         m_client.create_multipart_upload.assert_called()
         m_client.upload_part.assert_called()
         m_client.complete_multipart_upload.assert_called()
+
+    def test_link_to_bad_operation(self, m_boto):
+        s3 = backends.S3Storage('bucket', aws_region='us-east-1')
+
+        with pytest.raises(NotImplementedError,
+                           match='S3 backends cannot generate a link for multiple operations'):
+            s3.link_to(
+                path='foo/bar',
+                operation=ShareLinkOperation.download | ShareLinkOperation.upload,
+                expire=arrow.utcnow().shift(hours=1)
+            )
+
+        assert not s3.client.generate_presigned_url.called
+
+    @pytest.mark.parametrize('op,method,extra_params', [
+        (ShareLinkOperation.download, 'get_object', {}),
+        (ShareLinkOperation.upload, 'put_object', {'ContentType': 'application/octet-stream'}),
+        (ShareLinkOperation.remove, 'delete_object', {}),
+    ])
+    @freezegun.freeze_time('2020-04-27')
+    def test_link_to_success(self, m_boto, op, method, extra_params):
+        s3 = backends.S3Storage('bucket', aws_region='us-east-1')
+        s3.client.generate_presigned_url.return_value = 'https://localhost/foo'
+
+        result = s3.link_to(path='foo/bar', operation=op, expire=arrow.get(2020, 4, 27, 1))
+        assert result == 'https://localhost/foo'
+
+        s3.client.generate_presigned_url.assert_called_once_with(
+            ClientMethod=method,
+            ExpiresIn=3600,
+            Params={'Bucket': 'bucket', 'Key': 'foo/bar', **extra_params}
+        )

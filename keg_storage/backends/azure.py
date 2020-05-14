@@ -2,6 +2,7 @@ import base64
 import os
 import typing
 import urllib.parse
+import warnings
 from datetime import datetime
 from typing import ClassVar, List, Optional
 
@@ -9,6 +10,7 @@ import arrow
 from azure.storage.blob import (
     BlobBlock,
     BlobClient,
+    BlobSasPermissions,
     BlobServiceClient,
     ContainerClient,
     generate_blob_sas,
@@ -47,9 +49,11 @@ class AzureWriter(AzureFile):
     """
     We are using Azure Block Blobs for all operations. The process for writing them is substantially
     similar to that of S3 with a couple of differences.
-        1. We generate the IDs for the blocks
-        2. There is no separate call to instantiate the upload. The first call to put_block will
-           create the blob.
+
+    1. We generate the IDs for the blocks
+    2. There is no separate call to instantiate the upload. The first call to put_block will create
+        the blob.
+
     """
 
     max_block_size: ClassVar[int] = 100 * 1024 * 1024
@@ -273,8 +277,7 @@ class AzureStorage(base.StorageBackend):
         blob_client = self._create_blob_client(path)
         blob_client.delete_blob()
 
-    def create_upload_url(self, path: str, expire: typing.Union[arrow.Arrow, datetime],
-                          ip: typing.Optional[str] = None):
+    def create_upload_url(self, path: str, expire: typing.Union[arrow.Arrow, datetime]):
         """
         Create an SAS URL that can be used to upload a blob without any additional authentication.
         This url can be used in following way to authenticate a client and upload to the
@@ -283,43 +286,54 @@ class AzureStorage(base.StorageBackend):
             client = BlobClient.from_blob_url(url)
             client.upload_blob(data)
         """
-        return self._create_sas_url(
+        warnings.warn('create_upload_url is deprecated. Use link_to instead', DeprecationWarning)
+        return self.link_to(
             path=path,
-            sas_permissions='cw',
-            expire=expire,
-            ip=ip,
+            operation=base.ShareLinkOperation.upload,
+            expire=expire
         )
 
-    def create_download_url(self, path: str, expire: typing.Union[arrow.Arrow, datetime],
-                            ip: typing.Optional[str] = None):
+    def create_download_url(self, path: str, expire: typing.Union[arrow.Arrow, datetime]):
         """
         Create an SAS URL that can be used to download a blob without any additional authentication.
         This url may be accessed directly to download the blob:
 
             requests.get(url)
         """
-        return self._create_sas_url(
+        warnings.warn('create_download_url is deprecated. Use link_to instead', DeprecationWarning)
+        return self.link_to(
             path=path,
-            sas_permissions='r',
-            expire=expire,
-            ip=ip,
+            operation=base.ShareLinkOperation.download,
+            expire=expire
         )
 
-    def _create_sas_url(self, path: str, sas_permissions: str,
-                        expire: typing.Union[arrow.Arrow, datetime],
-                        ip: typing.Optional[str] = None):
-        if not self.account_url:
+    def link_to(
+            self,
+            path: str,
+            operation: typing.Union[base.ShareLinkOperation, str],
+            expire: typing.Union[arrow.Arrow, datetime],
+    ) -> str:
+        if not self.account_url or not self.key:
             raise ValueError('Cannot create a SAS URL without account credentials')
         path = self._clean_path(path)
         expire = expire.datetime if isinstance(expire, arrow.Arrow) else expire
+
+        operation = base.ShareLinkOperation.as_operation(operation)
+        perms = BlobSasPermissions(
+            read=operation & base.ShareLinkOperation.download,
+            add=False,  # only useful for append blobs that are not supported
+            create=operation & base.ShareLinkOperation.upload,
+            write=operation & base.ShareLinkOperation.upload,
+            delete=operation & base.ShareLinkOperation.remove,
+        )
+
         token = generate_blob_sas(
             account_name=self.account,
             container_name=self.bucket,
             blob_name=path,
             account_key=self.key,
-            permission=sas_permissions,
+            permission=perms,
             expiry=expire,
-            ip=ip
         )
         escaped_path = urllib.parse.quote(path, safe="")
         url = urllib.parse.urljoin(self.account_url, '{}/{}'.format(self.bucket, escaped_path))
