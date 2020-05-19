@@ -1,6 +1,14 @@
 Changelog
 =========
 
+0.5.5 released 2020-05-19
+-------------------------
+
+- Allow callers to specify port to use for SFTP connections (a880b3e_)
+
+.. _a880b3e: https://github.com/level12/keg-storage/commit/a880b3e
+
+
 0.5.4 released 2020-05-14
 -------------------------
 
