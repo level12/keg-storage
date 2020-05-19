@@ -26,10 +26,11 @@ def sftp_mocked(**kwargs):
                     return m_client
 
             fake_sftp = FakeSFTPStorage(
-                host=kwargs.get('host', 'foo'),
-                username=kwargs.get('username', 'bar'),
-                key_filename=kwargs.get('key_filename'),
-                known_hosts_fpath=kwargs.get('known_hosts_fpath', 'known_hosts'),
+                host=kwargs.pop('host', 'foo'),
+                username=kwargs.pop('username', 'bar'),
+                key_filename=kwargs.pop('key_filename', None),
+                known_hosts_fpath=kwargs.pop('known_hosts_fpath', 'known_hosts'),
+                **kwargs
             )
 
             m_sftp = mock.MagicMock()
@@ -47,6 +48,48 @@ def sftp_mocked(**kwargs):
 
 
 class TestSFTPStorage:
+    @mock.patch('keg_storage.backends.sftp.SSHClient')
+    def test_default_port(self, m_ssh):
+        m_client = m_ssh.return_value
+
+        storage = keg_storage.sftp.SFTPStorage(
+            host='foo',
+            username='bar',
+            key_filename='localhost_id_rsa',
+            known_hosts_fpath='known_hosts',
+        )
+        storage.create_client()
+        m_client.load_system_host_keys.assert_called_once_with('known_hosts')
+        m_client.connect.assert_called_once_with(
+            'foo',
+            port=22,
+            username='bar',
+            key_filename='localhost_id_rsa',
+            allow_agent=False,
+            look_for_keys=False
+        )
+
+    @mock.patch('keg_storage.backends.sftp.SSHClient')
+    def test_port_set(self, m_ssh):
+        m_client = m_ssh.return_value
+
+        storage = keg_storage.sftp.SFTPStorage(
+            host='foo',
+            username='bar',
+            key_filename='localhost_id_rsa',
+            known_hosts_fpath='known_hosts',
+            port=2200
+        )
+        storage.create_client()
+        m_client.load_system_host_keys.assert_called_once_with('known_hosts')
+        m_client.connect.assert_called_once_with(
+            'foo',
+            port=2200,
+            username='bar',
+            key_filename='localhost_id_rsa',
+            allow_agent=False,
+            look_for_keys=False
+        )
 
     @sftp_mocked()
     def test_sftp_list_files(self, sftp, m_sftp, m_log):

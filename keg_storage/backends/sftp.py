@@ -50,6 +50,7 @@ class SFTPStorage(InternalLinksStorageBackend):
             username,
             key_filename,
             known_hosts_fpath,
+            port=22,
             allow_agent=False,
             look_for_keys=False,
             linked_endpoint=None,
@@ -61,6 +62,7 @@ class SFTPStorage(InternalLinksStorageBackend):
         self.username = username
         self.key_filename = key_filename
         self.known_hosts_fpath = known_hosts_fpath
+        self.port = port
         self.allow_agent = allow_agent
         self.look_for_keys = look_for_keys
 
@@ -70,6 +72,7 @@ class SFTPStorage(InternalLinksStorageBackend):
 
         client.connect(
             self.host,
+            port=self.port,
             username=self.username,
             key_filename=self.key_filename,
             allow_agent=self.allow_agent,
