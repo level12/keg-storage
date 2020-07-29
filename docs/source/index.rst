@@ -3,7 +3,7 @@ Welcome to Keg-Storage
 
 .. toctree::
    :maxdepth: 2
-   :caption: Documenation:
+   :caption: Documentation:
 
    backends/index
    configuration/index
