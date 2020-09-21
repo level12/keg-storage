@@ -7,3 +7,4 @@ Welcome to Keg-Storage
 
    backends/index
    configuration/index
+   usage/index
