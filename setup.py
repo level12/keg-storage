@@ -43,13 +43,13 @@ setup(
             'boto3',
         ],
         'azure': [
-            'azure-storage-blob',
+            'azure-storage-blob>=12.6.0',
         ],
         'keg': [
             'kegelements',
         ],
         'test': [
-            'azure-storage-blob',
+            'azure-storage-blob>=12.6.0',
             'boto3',
             'flake8',
             'flask_webtest',

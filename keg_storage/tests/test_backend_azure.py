@@ -10,8 +10,7 @@ import urllib.parse
 
 import arrow
 import pytest
-from azure.storage.blob import BlobClient, BlobProperties, ContainerClient
-from azure.storage.blob._models import BlobPrefix
+from azure.storage.blob import BlobClient, BlobProperties, ContainerClient, BlobPrefix
 
 from keg_storage import backends
 from keg_storage.backends import base
