@@ -10,13 +10,14 @@ import arrow
 from azure.storage.blob import (
     BlobBlock,
     BlobClient,
+    BlobPrefix,
     BlobSasPermissions,
     BlobServiceClient,
     ContainerClient,
     generate_blob_sas,
     generate_container_sas,
+
 )
-from azure.storage.blob._models import BlobPrefix
 
 from keg_storage.backends import base
 
@@ -325,6 +326,7 @@ class AzureStorage(base.StorageBackend):
             create=operation & base.ShareLinkOperation.upload,
             write=operation & base.ShareLinkOperation.upload,
             delete=operation & base.ShareLinkOperation.remove,
+            tag=False
         )
 
         token = generate_blob_sas(
