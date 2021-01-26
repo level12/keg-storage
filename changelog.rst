@@ -1,6 +1,18 @@
 Changelog
 =========
 
+0.5.6 released 2021-01-26
+-------------------------
+
+- Support latest version of Azure SDK (6ffff6a_)
+- Added usage notes for URLs created with the S3 `link_to` method  (4c60eb2_)
+- Fix typo in documentation (6c6eb8e_)
+
+.. _6ffff6a: https://github.com/level12/keg-storage/commit/6ffff6a
+.. _4c60eb2: https://github.com/level12/keg-storage/commit/4c60eb2
+.. _6c6eb8e: https://github.com/level12/keg-storage/commit/6c6eb8e
+
+
 0.5.5 released 2020-05-19
 -------------------------
 
