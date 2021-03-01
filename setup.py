@@ -26,8 +26,9 @@ setup(
         'Programming Language :: Python :: 3.7',
     ],
     license='BSD',
+    package_data={'keg_storage': ['py.typed']},
     packages=find_packages(),
-    zip_safe=True,
+    zip_safe=False,
     version=version['VERSION'],
     install_requires=[
         'arrow',
