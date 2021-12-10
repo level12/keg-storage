@@ -193,6 +193,22 @@ class TestLocalFSStorage:
             assert fp.read() == file_data2
         assert f.fp.closed is True
 
+    def test_copy_file(self, tmp_path: pathlib.Path):
+        root = tmp_path.joinpath('root')
+        root.mkdir()
+
+        file_path = root.joinpath('file.txt')
+        file_path_copy = root.joinpath('file2.txt')
+        fs = backends.LocalFSStorage(root)
+        file_data1 = os.urandom(100)
+
+        with fs.open('file.txt', backends.FileMode.write) as f:
+            f.write(file_data1)
+        fs.copy(str(file_path), str(file_path_copy))
+
+        with file_path_copy.open('rb') as fp:
+            assert fp.read() == file_data1
+
     def test_open_for_writing_creates_directories(self, tmp_path: pathlib.Path):
         root = tmp_path.joinpath('root')
         root.mkdir()
