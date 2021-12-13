@@ -14,12 +14,12 @@ jobs:
             - run:
                 name: install tox from pypi
                 command: >
-                    python3.6 -m pip install --upgrade --force-reinstall --quiet tox
+                    python3 -m pip install --upgrade --force-reinstall --quiet tox
 
             - run:
                 name: version checks
                 command: |
-                    python3.6 --version
+                    python3 --version
                     pip --version
                     tox --version
 
