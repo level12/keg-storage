@@ -111,7 +111,7 @@ class TestGet(CLIBase):
             FileNotFoundInStorageError('abc', 'def')
 
         results = self.invoke('foo/bar', 'bar', exit_code=1)
-        assert results.output == 'Error: Could not open file def: Not found in abc.\n'
+        assert results.output == "Error: Could not open file 'def': Not found in abc.\n"
 
 
 @mock.patch.object(current_app.storage, 'get_interface', autospec=True, spec_set=True)
@@ -164,7 +164,7 @@ class TestDelete(CLIBase):
         m_get_interface.return_value.delete.side_effect = FileNotFoundInStorageError('abc', 'def')
 
         results = self.invoke('foo/bar', exit_code=1)
-        assert results.output == 'Error: Could not open file def: Not found in abc.\n'
+        assert results.output == "Error: Could not open file 'def': Not found in abc.\n"
 
 
 @mock.patch.object(current_app.storage, 'get_interface', autospec=True, spec_set=True)
@@ -255,5 +255,5 @@ class TestReencrypt(CLIBase):
         assert results.output.splitlines() == [
             'Old Key: ',
             'New Key: ',
-            'Error: Could not open file def: Not found in abc.'
+            "Error: Could not open file 'def': Not found in abc."
         ]
