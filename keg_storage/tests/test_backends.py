@@ -317,8 +317,8 @@ class TestInternalLinkStorageBackend:
         }
         assert header == {
             'alg': 'HS512',
-            'iat': arrow.get(2020, 4, 27).timestamp,
-            'exp': arrow.get(2020, 4, 27, 1).timestamp
+            'iat': arrow.get(2020, 4, 27).timestamp(),
+            'exp': arrow.get(2020, 4, 27, 1).timestamp()
         }
 
     def test_deserialize_link_token_no_secret_key(self, tmp_path: pathlib.Path):
