@@ -1,6 +1,18 @@
 Changelog
 =========
 
+0.5.7 released 2021-12-14
+-------------------------
+
+- add copy method and related CLI for s3 and local backends (02003a8_)
+- CircleCI config fix for python versions present (19c1881_)
+- update tox for python versions present in CI (818527b_)
+
+.. _02003a8: https://github.com/level12/keg-storage/commit/02003a8
+.. _19c1881: https://github.com/level12/keg-storage/commit/19c1881
+.. _818527b: https://github.com/level12/keg-storage/commit/818527b
+
+
 0.5.6 released 2021-01-26
 -------------------------
 
