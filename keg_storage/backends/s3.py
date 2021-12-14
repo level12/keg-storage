@@ -248,6 +248,16 @@ class S3Storage(StorageBackend):
         else:
             raise ValueError('Unsupported mode. Accepted modes are FileMode.read or FileMode.write')
 
+    def copy(self, current_file, new_file):
+        self.client.copy_object(
+            CopySource={
+                'Bucket': self.bucket,
+                'Key': current_file
+            },
+            Bucket=self.bucket,
+            Key=new_file
+        )
+
     def delete(self, path):
         self.client.delete_object(
             Bucket=self.bucket,

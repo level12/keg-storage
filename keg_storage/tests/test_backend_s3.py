@@ -285,6 +285,19 @@ class TestS3Storage:
             }
         )
 
+    def test_copy(self, m_boto):
+        s3 = backends.S3Storage('bucket', aws_region='us-east-1')
+        s3.copy('foo/bar', 'foo/baz')
+
+        s3.client.copy_object.assert_called_once_with(
+            CopySource={
+                'Bucket': 'bucket',
+                'Key': 'foo/bar'
+            },
+            Bucket='bucket',
+            Key='foo/baz'
+        )
+
     def test_write_abort(self, m_boto):
         m_client = mock.MagicMock()
         m_client.create_multipart_upload.return_value = {'UploadId': 'upload-id'}

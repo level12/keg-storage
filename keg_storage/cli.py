@@ -84,6 +84,15 @@ def storage_put(ctx, file, key):
                err=True)
 
 
+@storage.command('copy')
+@click.argument('src_key')
+@click.argument('dest_key')
+@click.pass_context
+def storage_copy(ctx, src_key, dest_key):
+    ctx.obj.data['storage'].copy(src_key, dest_key)
+    click.echo(f"Copied {src_key} to {dest_key}.")
+
+
 @storage.command('delete')
 @click.argument('path')
 @click.pass_context

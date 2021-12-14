@@ -158,6 +158,12 @@ class StorageBackend:
         """
         raise NotImplementedError()
 
+    def copy(self, path: str, new_path: str):
+        """
+        Copy the remote file specified by `path` to `new_path`.
+        """
+        raise NotImplementedError()
+
     def link_to(
             self,
             path: str,
