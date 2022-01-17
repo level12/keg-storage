@@ -197,8 +197,8 @@ class TestLocalFSStorage:
         root = tmp_path.joinpath('root')
         root.mkdir()
 
-        file_path = root.joinpath('file.txt')
-        file_path_copy = root.joinpath('file2.txt')
+        file_path = pathlib.Path('file.txt')
+        file_path_copy = pathlib.Path('file2.txt')
         fs = backends.LocalFSStorage(root)
         file_data1 = os.urandom(100)
 
@@ -206,7 +206,7 @@ class TestLocalFSStorage:
             f.write(file_data1)
         fs.copy(str(file_path), str(file_path_copy))
 
-        with file_path_copy.open('rb') as fp:
+        with root.joinpath(file_path_copy).open('rb') as fp:
             assert fp.read() == file_data1
 
     def test_open_for_writing_creates_directories(self, tmp_path: pathlib.Path):
