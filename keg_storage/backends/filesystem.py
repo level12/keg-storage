@@ -123,6 +123,10 @@ class LocalFSStorage(base.InternalLinksStorageBackend):
         return LocalFSFile(path, mode)
 
     def copy(self, path: str, new_path: str):
+        self._validate_path(path)
+        self._validate_path(new_path)
+        path = str(self._resolve_path(path))
+        new_path = str(self._resolve_path(new_path))
         return self.put(path, new_path)
 
     def delete(self, path: str):
