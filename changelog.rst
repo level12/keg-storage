@@ -1,6 +1,16 @@
 Changelog
 =========
 
+0.5.8 released 2022-01-17
+-------------------------
+
+- add py.typed for PEP 561 compatibility (c5731f5_)
+- ensure paths passed to copy are resolved to the root path (1cab726_)
+
+.. _c5731f5: https://github.com/level12/keg-storage/commit/c5731f5
+.. _1cab726: https://github.com/level12/keg-storage/commit/1cab726
+
+
 0.5.7 released 2021-12-14
 -------------------------
 
