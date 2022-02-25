@@ -1,3 +1,4 @@
+import hashlib
 import io
 import os
 import pathlib
@@ -8,8 +9,8 @@ from urllib.parse import urlparse
 import arrow
 import click
 import freezegun
-import itsdangerous
 import pytest
+from authlib import jose
 
 import keg_storage
 from keg_storage.backends.base import (
@@ -306,19 +307,18 @@ class TestInternalLinkStorageBackend:
             expire=arrow.get(2020, 4, 27, 1)
         )
 
-        signer = itsdangerous.TimedJSONWebSignatureSerializer(
-            secret_key=b'a' * 32,
-            salt='fake'
-        )
-        body, header = signer.loads(token, salt='fake', return_header=True)
-        assert body == {
+        payload = jose.jwt.decode(token, backend.get_token_signature(hashlib.sha512))
+        payload.validate()
+
+        assert payload == {
             'key': 'foo',
-            'op': 'd'
-        }
-        assert header == {
-            'alg': 'HS512',
+            'op': 'd',
             'iat': arrow.get(2020, 4, 27).timestamp(),
-            'exp': arrow.get(2020, 4, 27, 1).timestamp()
+            'exp': arrow.get(2020, 4, 27, 1).timestamp(),
+        }
+        assert payload.header == {
+            'alg': 'HS512',
+            'typ': 'JWT',
         }
 
     def test_deserialize_link_token_no_secret_key(self, tmp_path: pathlib.Path):
@@ -332,7 +332,7 @@ class TestInternalLinkStorageBackend:
         token = backend.create_link_token(path='foo', operation=ShareLinkOperation.download,
                                           expire=arrow.get(2020, 4, 27, 1))
         backend.name = 'fake1'
-        with pytest.raises(itsdangerous.BadSignature, match='Signature .* does not match'):
+        with pytest.raises(jose.errors.BadSignatureError):
             backend.deserialize_link_token(token)
 
     def test_deserialize_link_token_expired(self, tmp_path: pathlib.Path):
@@ -342,7 +342,7 @@ class TestInternalLinkStorageBackend:
                                               expire=arrow.get(2020, 4, 26, 23, 59, 59))
 
         with freezegun.freeze_time('2020-04-27'):
-            with pytest.raises(itsdangerous.SignatureExpired, match='Signature expired'):
+            with pytest.raises(jose.errors.ExpiredTokenError):
                 backend.deserialize_link_token(token)
 
     @freezegun.freeze_time('2020-04-27')

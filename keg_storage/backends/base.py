@@ -1,9 +1,11 @@
 import enum
+import hashlib
+import time
 import typing
 from datetime import datetime
 
 import arrow
-import itsdangerous
+from authlib import jose
 
 from keg_storage.utils import expire_time_to_seconds
 
@@ -294,6 +296,21 @@ class InternalLinksStorageBackend(StorageBackend):
         self.linked_endpoint = linked_endpoint
         self.secret_key = secret_key
 
+    def get_token_signature(self, digest_method=hashlib.sha512):
+        base_key = (
+            self.name
+            + 'signer'
+            + (self.secret_key or b'').decode()
+        )
+        return digest_method(base_key.encode()).digest()
+
+    def get_token_payload(self, payload, expires_in):
+        now = int(time.time())
+        exp = now + expires_in
+        payload['iat'] = payload.get('iat', now)
+        payload['exp'] = payload.get('exp', exp)
+        return payload
+
     def create_link_token(
             self,
             *,
@@ -307,16 +324,16 @@ class InternalLinksStorageBackend(StorageBackend):
         if self.secret_key is None:
             raise ValueError('Backend must be configured with secret_key to use this feature')
 
-        signer = itsdangerous.TimedJSONWebSignatureSerializer(
-            secret_key=self.secret_key,
-            expires_in=int(expire_time_to_seconds(expire)),
-            salt=self.name,
-        )
         token_data = InternalLinkTokenData(
             path=path,
             operations=operation
         )
-        return signer.dumps(token_data.serialize())
+        payload = self.get_token_payload(
+            token_data.serialize(),
+            int(expire_time_to_seconds(expire))
+        )
+        header = {'alg': 'HS512'}
+        return jose.jwt.encode(header, payload, self.get_token_signature())
 
     def deserialize_link_token(self, token: str) -> InternalLinkTokenData:
         """
@@ -325,13 +342,10 @@ class InternalLinksStorageBackend(StorageBackend):
         if self.secret_key is None:
             raise ValueError('Backend must be configured with secret_key to use this feature')
 
-        signer = itsdangerous.TimedJSONWebSignatureSerializer(
-            secret_key=self.secret_key,
-            salt=self.name,
-        )
-        data = signer.loads(token)
+        payload = jose.jwt.decode(token, self.get_token_signature(hashlib.sha512))
+        payload.validate()
 
-        return InternalLinkTokenData.deserialize(data)
+        return InternalLinkTokenData.deserialize(payload)
 
     def link_to(
             self,
