@@ -106,10 +106,16 @@ class LinkViewMixin:
         if not token_data.allow_download:
             flask.abort(403)
 
+        headers = {}
+        output_path = flask.request.args.get('output_path')
+        if output_path:
+            headers['Content-Disposition'] = f'attachment; filename={output_path}'
+
         fp = storage.open(token_data.path, backends.FileMode.read)
         return flask.Response(
             fp.iter_chunks(),
             mimetype='application/octet-stream',
+            headers=headers,
         )
 
     def on_upload_success(self, token_data: backends.InternalLinkTokenData):

@@ -170,7 +170,8 @@ class StorageBackend:
             self,
             path: str,
             operation: typing.Union[ShareLinkOperation, str],
-            expire: typing.Union[arrow.Arrow, datetime]
+            expire: typing.Union[arrow.Arrow, datetime],
+            output_path: typing.Optional[str] = None,
     ) -> str:
         """
         Returns a URL allowing direct the specified operations to be performed on the given path
@@ -351,7 +352,8 @@ class InternalLinksStorageBackend(StorageBackend):
             self,
             path: str,
             operation: typing.Union[ShareLinkOperation, str],
-            expire: typing.Union[arrow.Arrow, datetime]
+            expire: typing.Union[arrow.Arrow, datetime],
+            output_path: typing.Optional[str] = None,
     ) -> str:
         """
         Create a URL pointing to the given `linked_endpoint` containing a JWT authorizing the user
@@ -380,7 +382,9 @@ class InternalLinksStorageBackend(StorageBackend):
             operation=operation,
             expire=expire
         )
-        return flask.url_for(self.linked_endpoint, token=token.decode(), _external=True)
+        return flask.url_for(
+            self.linked_endpoint, token=token.decode(), output_path=output_path, _external=True
+        )
 
 
 class FileNotFoundInStorageError(Exception):

@@ -313,6 +313,7 @@ class AzureStorage(base.StorageBackend):
             path: str,
             operation: typing.Union[base.ShareLinkOperation, str],
             expire: typing.Union[arrow.Arrow, datetime],
+            output_path: typing.Optional[str] = None,
     ) -> str:
         if not self.account_url or not self.key:
             raise ValueError('Cannot create a SAS URL without account credentials')
@@ -336,6 +337,7 @@ class AzureStorage(base.StorageBackend):
             account_key=self.key,
             permission=perms,
             expiry=expire,
+            content_disposition=f'attachment;filename={output_path}' if output_path else None,
         )
         escaped_path = urllib.parse.quote(path, safe="")
         url = urllib.parse.urljoin(self.account_url, '{}/{}'.format(self.bucket, escaped_path))

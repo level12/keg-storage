@@ -74,10 +74,29 @@ class TestViewMixin:
             operation=ShareLinkOperation.download,
             expire=arrow.utcnow().shift(hours=1)
         )
+        assert 'output_path' not in url
 
         resp = self.client.get(url, headers={'StorageRoot': str(tmp_path)})
         assert resp.status_code == 200
         assert resp.content_type == 'application/octet-stream'
+        assert resp.body == b'foo'
+
+    def test_get_with_output_path(self, tmp_path: pathlib.Path):
+        storage = create_local_storage(tmp_path)
+        storage.upload(io.BytesIO(b'foo'), 'abc.txt')
+        assert tmp_path.joinpath('abc.txt').exists()
+
+        url = storage.link_to(
+            path='abc.txt',
+            operation=ShareLinkOperation.download,
+            expire=arrow.utcnow().shift(hours=1),
+            output_path='myfile.txt',
+        )
+
+        resp = self.client.get(url, headers={'StorageRoot': str(tmp_path)})
+        assert resp.status_code == 200
+        assert resp.content_type == 'application/octet-stream'
+        assert resp.content_disposition == 'attachment; filename=myfile.txt'
         assert resp.body == b'foo'
 
     @pytest.mark.parametrize('method', ['post', 'put'])

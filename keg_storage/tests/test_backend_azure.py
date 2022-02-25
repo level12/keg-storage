@@ -323,7 +323,22 @@ class TestAzureStorageUtilities:
         assert qs['se'] == ['2019-01-02T03:04:05Z']
         assert qs['sp'] == [perms]
         assert qs['sig']
+        assert 'rscd' not in qs
         assert 'sip' not in qs
+
+    def test_link_to_with_output_path(self):
+        expire = arrow.get(2019, 1, 2, 3, 4, 5)
+        ops = base.ShareLinkOperation.download
+        storage = create_storage()
+        url = storage.link_to(
+            'abc/def.txt',
+            operation=ops,
+            expire=expire,
+            output_path='myfile.txt',
+        )
+        parsed = urlparse.urlparse(url)
+        qs = urlparse.parse_qs(parsed.query)
+        assert qs['rscd'] == ['attachment;filename=myfile.txt']
 
     def test_sas_create_container_url(self):
         storage = backends.AzureStorage(
