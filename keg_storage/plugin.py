@@ -4,7 +4,7 @@ import warnings
 from typing import Mapping, Optional
 
 import flask
-import itsdangerous
+from authlib import jose
 
 from keg_storage import cli
 from keg_storage import backends
@@ -92,7 +92,11 @@ class LinkViewMixin:
 
         try:
             return storage.deserialize_link_token(token=token)
-        except itsdangerous.BadData:
+        except (
+            jose.errors.BadSignatureError,
+            jose.errors.DecodeError,
+            jose.errors.ExpiredTokenError,
+        ):
             flask.abort(403)
 
     def get(self):

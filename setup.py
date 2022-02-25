@@ -32,9 +32,9 @@ setup(
     version=version['VERSION'],
     install_requires=[
         'arrow',
+        'authlib',
         'humanize',
         'BlazeUtils',
-        'itsdangerous',
     ],
     extras_require={
         'sftp': [
