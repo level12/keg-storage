@@ -1,6 +1,22 @@
 Changelog
 =========
 
+0.5.9 released 2022-03-01
+-------------------------
+
+- fix links view mixin to support proper mro (4e67f4b_)
+- add StorageOperations wrapper/mixin (2db0ae0_)
+- allow served filename to be different (4a643c5_)
+- change plugin spec requirement from keg to flask (a2ffdbb_)
+- fix itsdangerous deprecations by replacing usage with authlib (a1b389c_)
+
+.. _4e67f4b: https://github.com/level12/keg-storage/commit/4e67f4b
+.. _2db0ae0: https://github.com/level12/keg-storage/commit/2db0ae0
+.. _4a643c5: https://github.com/level12/keg-storage/commit/4a643c5
+.. _a2ffdbb: https://github.com/level12/keg-storage/commit/a2ffdbb
+.. _a1b389c: https://github.com/level12/keg-storage/commit/a1b389c
+
+
 0.5.8 released 2022-01-17
 -------------------------
 
