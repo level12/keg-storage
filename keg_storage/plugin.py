@@ -165,6 +165,11 @@ def storage_args():
 
     @wrapt.decorator
     def _execute(wrapped, instance, args, kwargs):
+        if not instance and args:
+            # Check first arg to see if it's related to StorageOperations. We need this
+            # for python < 3.9
+            if issubclass(args[0], StorageOperations):
+                instance = args[0]
         kwargs.setdefault('storage_location', getattr(instance, 'storage_location', None))
         kwargs.setdefault('storage_profile', getattr(instance, 'storage_profile', None))
         result = wrapped(*args, **kwargs)
