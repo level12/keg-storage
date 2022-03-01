@@ -5,5 +5,6 @@ if _find_spec('flask'):
     from keg_storage.plugin import (  # noqa: F401
         Storage,
         LinkViewMixin,
+        StorageOperations,
     )
 from keg_storage.backends import *  # noqa
