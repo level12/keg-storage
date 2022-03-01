@@ -25,7 +25,7 @@ def create_local_storage(root: Union[str, pathlib.Path]) -> keg_storage.LocalFSS
     )
 
 
-class LinkView(BaseView, keg_storage.LinkViewMixin):
+class LinkView(keg_storage.LinkViewMixin, BaseView):
     blueprint = public_bp
     url = '/storage'
 
