@@ -74,8 +74,12 @@ class Storage:
 
 
 def _disable_csrf(func):
-    if 'csrf' in flask.current_app.extensions:
-        return flask.current_app.extensions['csrf'].exempt(func)
+    try:
+        if 'csrf' in flask.current_app.extensions:
+            return flask.current_app.extensions['csrf'].exempt(func)
+    except RuntimeError as exc:
+        if 'application context' not in str(exc):
+            raise
     return func
 
 
