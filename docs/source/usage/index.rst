@@ -31,3 +31,11 @@ JavaScript example:
    const resp = await axios.default.put(storageUrl, file, {
        headers: { "content-type": "application/octet-stream" },
    });
+
+
+StorageOperations wrapper/mixin
+-------------------------------
+
+.. autoclass:: keg_storage.StorageOperations
+    :members:
+    :inherited-members:
