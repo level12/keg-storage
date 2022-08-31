@@ -1,6 +1,14 @@
 Changelog
 =========
 
+0.5.11 released 2022-08-31
+--------------------------
+
+- pass extra parameters in storage ops when generating a download link (e02cdfe_)
+
+.. _e02cdfe: https://github.com/level12/keg-storage/commit/e02cdfe
+
+
 0.5.10 released 2022-08-31
 --------------------------
 
