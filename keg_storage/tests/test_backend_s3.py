@@ -384,3 +384,25 @@ class TestS3Storage:
             ExpiresIn=3600,
             Params={'Bucket': 'bucket', 'Key': 'foo/bar', **extra_params}
         )
+
+    @freezegun.freeze_time('2020-04-27')
+    def test_link_to_specific_content_type(self, m_boto):
+        op = ShareLinkOperation.download
+        method = 'get_object'
+        extra_params = {'ResponseContentType': 'image/png'}
+        s3 = backends.S3Storage('bucket', aws_region='us-east-1')
+        s3.client.generate_presigned_url.return_value = 'https://localhost/foo'
+
+        result = s3.link_to(
+            path='foo/bar',
+            operation=op,
+            expire=arrow.get(2020, 4, 27, 1),
+            content_type='image/png',
+        )
+        assert result == 'https://localhost/foo'
+
+        s3.client.generate_presigned_url.assert_called_once_with(
+            ClientMethod=method,
+            ExpiresIn=3600,
+            Params={'Bucket': 'bucket', 'Key': 'foo/bar', **extra_params}
+        )

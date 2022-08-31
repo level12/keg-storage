@@ -172,6 +172,7 @@ class StorageBackend:
             operation: typing.Union[ShareLinkOperation, str],
             expire: typing.Union[arrow.Arrow, datetime],
             output_path: typing.Optional[str] = None,
+            content_type: typing.Optional[str] = None,
     ) -> str:
         """
         Returns a URL allowing direct the specified operations to be performed on the given path
@@ -354,6 +355,7 @@ class InternalLinksStorageBackend(StorageBackend):
             operation: typing.Union[ShareLinkOperation, str],
             expire: typing.Union[arrow.Arrow, datetime],
             output_path: typing.Optional[str] = None,
+            content_type: typing.Optional[str] = None,
     ) -> str:
         """
         Create a URL pointing to the given `linked_endpoint` containing a JWT authorizing the user
@@ -363,6 +365,8 @@ class InternalLinksStorageBackend(StorageBackend):
         your own subclass to support other frameworks.
 
         To use this method you must provide `secret_key` and `linked_endpoint` to the constructor.
+
+        Note: `content_type` parameter is ignored for this backend.
         """
         try:
             import flask

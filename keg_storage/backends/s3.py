@@ -270,6 +270,7 @@ class S3Storage(StorageBackend):
             operation: typing.Union[ShareLinkOperation, str],
             expire: typing.Union[arrow.Arrow, datetime],
             output_path: typing.Optional[str] = None,
+            content_type: typing.Optional[str] = None,
     ) -> str:
         operation = ShareLinkOperation.as_operation(operation)
         if operation.name is None:
@@ -281,6 +282,8 @@ class S3Storage(StorageBackend):
             method = 'get_object'
             if output_path:
                 extra_params['ResponseContentDisposition'] = f'attachment;filename={output_path}'
+            if content_type:
+                extra_params['ResponseContentType'] = content_type
         elif operation == ShareLinkOperation.upload:
             method = 'put_object'
             extra_params = {'ContentType': 'application/octet-stream'}
