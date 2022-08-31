@@ -1,6 +1,14 @@
 Changelog
 =========
 
+0.5.10 released 2022-08-31
+--------------------------
+
+- allow specifying content type for backend-generated download links (6e72571_)
+
+.. _6e72571: https://github.com/level12/keg-storage/commit/6e72571
+
+
 0.5.9 released 2022-03-01
 -------------------------
 
