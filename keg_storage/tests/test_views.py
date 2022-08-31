@@ -335,11 +335,12 @@ class TestStorageOperations:
     def test_storage_get_download_link(self):
         storage = flask.current_app.storage.get_interface('storage.s3')
         storage.link_to.return_value = 'retval'
-        link = ObjectView.storage_get_download_link('foo.txt', 15)
+        link = ObjectView.storage_get_download_link('foo.txt', 15, content_type='text/plain')
         storage.link_to.assert_called_once_with(
             'Folder-One/foo.txt',
             backends.ShareLinkOperation.download,
             arrow.get('2022-03-01 10:15:00'),
+            content_type='text/plain',
         )
         assert link == 'retval'
 

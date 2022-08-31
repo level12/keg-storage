@@ -288,7 +288,7 @@ class StorageOperations:
     @classmethod
     @storage_args()
     def storage_get_download_link(
-        cls, filename, expire_minutes, storage_location=None, storage_profile=None
+        cls, filename, expire_minutes, storage_location=None, storage_profile=None, **kwargs
     ):
         """Generate an expiring download link to pass to client for a stored object."""
         storage_instance = cls.storage_get_profile(storage_profile)
@@ -296,6 +296,7 @@ class StorageOperations:
             cls.storage_prefix_path(storage_location, filename),
             backends.ShareLinkOperation.download,
             arrow.utcnow().shift(minutes=expire_minutes),
+            **kwargs,
         )
 
     @classmethod
