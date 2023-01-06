@@ -204,6 +204,10 @@ class TestStorageOperations:
         assert ObjectView.storage_prefix_path(StorageLocation.folder1, '.foo.txt') == \
             'Folder-One/foo.txt'
 
+    def test_storage_prefix_path_none_location(self):
+        assert ObjectView.storage_prefix_path(None, 'foo.txt') == \
+               'foo.txt'
+
     def test_storage_get_profile(self):
         assert ObjectView.storage_get_profile('storage.s3') == \
             flask.current_app.storage.get_interface('storage.s3')
