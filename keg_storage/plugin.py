@@ -198,7 +198,7 @@ class StorageOperations:
         """Join the location path with the filename to get the full object path"""
         if filename.startswith('.'):
             filename = filename[1:]
-        return '/'.join([location.value, filename])
+        return '/'.join([location.value, filename]) if location else filename
 
     @staticmethod
     def storage_generate_filename(filename):
