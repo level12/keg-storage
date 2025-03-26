@@ -194,11 +194,13 @@ class StorageOperations:
     storage_profile: str = None
 
     @staticmethod
-    def storage_prefix_path(location, filename):
+    def storage_prefix_path(location: Optional[Enum], filename: str):
         """Join the location path with the filename to get the full object path"""
         if filename.startswith('.'):
             filename = filename[1:]
-        return '/'.join([location.value, filename])
+        if location:
+            return '/'.join([location.value, filename])
+        return filename
 
     @staticmethod
     def storage_generate_filename(filename):
