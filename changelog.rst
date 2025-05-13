@@ -1,6 +1,16 @@
 Changelog
 =========
 
+0.5.12 released 2025-05-13
+--------------------------
+
+- allow passing extra args when uploading files - e.g. S3 args for setting metadata (e54aff3_)
+- fix storage operations when location is None (de98632_)
+
+.. _e54aff3: https://github.com/level12/keg-storage/commit/e54aff3
+.. _de98632: https://github.com/level12/keg-storage/commit/de98632
+
+
 0.5.11 released 2022-08-31
 --------------------------
 
