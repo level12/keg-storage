@@ -334,8 +334,8 @@ class TestS3Storage:
     def test_link_to_bad_operation(self, m_boto):
         s3 = backends.S3Storage('bucket', aws_region='us-east-1')
 
-        with pytest.raises(NotImplementedError,
-                           match='S3 backends cannot generate a link for multiple operations'):
+        with pytest.raises(ValueError,
+                           match='Unknown operation'):
             s3.link_to(
                 path='foo/bar',
                 operation=ShareLinkOperation.download | ShareLinkOperation.upload,

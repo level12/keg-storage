@@ -14,7 +14,7 @@ from keg_storage_ta.views import create_local_storage, ObjectView, StorageLocati
 
 
 class TestViewMixin:
-    def setup(self):
+    def setup_method(self):
         self.client = flask_webtest.TestApp(flask.current_app)
 
     def test_get_no_token(self, tmp_path: pathlib.Path):

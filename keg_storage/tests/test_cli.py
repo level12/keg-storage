@@ -15,7 +15,7 @@ from keg.testing import CLIBase, invoke_command
 from keg_storage import FileNotFoundInStorageError, ShareLinkOperation
 
 
-@mock.patch.object(current_app.storage, 'get_interface', autospec=True, spec_set=True)
+@mock.patch('flask.current_app.storage.get_interface', autospec=True, spec_set=True)
 class TestCLI(CLIBase):
     def test_no_location(self, m_get_interface):
         results = self.invoke('storage', 'list', 'foo/bar', exit_code=1)
@@ -31,7 +31,7 @@ class TestCLI(CLIBase):
             'Pass --location or change your configuration.\nAborted!\n'
 
 
-@mock.patch.object(current_app.storage, 'get_interface', autospec=True, spec_set=True)
+@mock.patch('flask.current_app.storage.get_interface', autospec=True, spec_set=True)
 class TestList(CLIBase):
     cmd_name = 'storage --location loc list'
 
@@ -66,7 +66,7 @@ def change_dir(path):
         os.chdir(cwd)
 
 
-@mock.patch.object(current_app.storage, 'get_interface', autospec=True, spec_set=True)
+@mock.patch('flask.current_app.storage.get_interface', autospec=True, spec_set=True)
 class TestGet(CLIBase):
     cmd_name = 'storage --location loc get'
 
@@ -114,7 +114,7 @@ class TestGet(CLIBase):
         assert results.output == "Error: Could not open file 'def': Not found in abc.\n"
 
 
-@mock.patch.object(current_app.storage, 'get_interface', autospec=True, spec_set=True)
+@mock.patch('flask.current_app.storage.get_interface', autospec=True, spec_set=True)
 class TestPut(CLIBase):
     cmd_name = 'storage --location loc put'
 
@@ -148,7 +148,7 @@ class TestPut(CLIBase):
         assert stdin_data.getvalue() == b'test data'
 
 
-@mock.patch.object(current_app.storage, 'get_interface', autospec=True, spec_set=True)
+@mock.patch('flask.current_app.storage.get_interface', autospec=True, spec_set=True)
 class TestDelete(CLIBase):
     cmd_name = 'storage --location loc delete'
 
@@ -167,7 +167,7 @@ class TestDelete(CLIBase):
         assert results.output == "Error: Could not open file 'def': Not found in abc.\n"
 
 
-@mock.patch.object(current_app.storage, 'get_interface', autospec=True, spec_set=True)
+@mock.patch('flask.current_app.storage.get_interface', autospec=True, spec_set=True)
 class TestLink(CLIBase):
     cmd_name = 'storage --location loc link'
 
@@ -227,7 +227,7 @@ class TestLink(CLIBase):
         assert results.output == 'Some error\nAborted!\n'
 
 
-@mock.patch.object(current_app.storage, 'get_interface', autospec=True, spec_set=True)
+@mock.patch('flask.current_app.storage', 'get_interface', autospec=True, spec_set=True)
 @mock.patch('keg_storage.utils.reencrypt', autospec=True, spec_set=True)
 class TestReencrypt(CLIBase):
     class InputRunner(click.testing.CliRunner):
