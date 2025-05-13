@@ -63,7 +63,7 @@ class FakeBackend(keg_storage.InternalLinksStorageBackend):
             )
         return results
 
-    def open(self, path, mode):
+    def open(self, path, mode, extra_args=None):
         path = os.path.join(self.base_dir, path)
         return FakeRemoteFile(self.base_dir / path, mode)
 

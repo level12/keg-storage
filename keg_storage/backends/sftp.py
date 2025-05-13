@@ -98,7 +98,7 @@ class SFTPStorage(InternalLinksStorageBackend):
                 for x in conn.listdir_attr(path)
             ]
 
-    def open(self, path: str, mode: typing.Union[FileMode, str]):
+    def open(self, path: str, mode: typing.Union[FileMode, str], extra_args=None):
         mode = FileMode.as_mode(mode)
 
         # SFTPRemoteFile is responsible for closing the client connection

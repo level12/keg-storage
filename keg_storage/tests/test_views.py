@@ -227,7 +227,29 @@ class TestStorageOperations:
         storage = flask.current_app.storage.get_interface('storage.s3')
         storage.upload.assert_called_once_with(
             file_obj,
-            path=f'Folder-One/{filename}'
+            path=f'Folder-One/{filename}',
+            extra_args={}
+        )
+        assert filename != 'foo.txt'
+        assert filename.endswith('.txt')
+
+    @mock.patch.dict(
+        'flask.current_app.storage._interfaces',
+        {'storage.s3': mock.Mock(spec=backends.StorageBackend)}
+    )
+    def test_storage_upload_file_with_args(self):
+        file_obj = io.BytesIO()
+        filename = ObjectView.storage_upload_file(
+            file_obj,
+            'foo.txt',
+            content_type='foo',
+            content_encoding='bar',
+        )
+        storage = flask.current_app.storage.get_interface('storage.s3')
+        storage.upload.assert_called_once_with(
+            file_obj,
+            path=f'Folder-One/{filename}',
+            extra_args={'ContentType': 'foo', 'ContentEncoding': 'bar'},
         )
         assert filename != 'foo.txt'
         assert filename.endswith('.txt')
@@ -242,7 +264,8 @@ class TestStorageOperations:
         storage = flask.current_app.storage.get_interface('storage.s3')
         storage.upload.assert_called_once_with(
             file_obj,
-            path=f'Folder-One/{filename}'
+            path=f'Folder-One/{filename}',
+            extra_args={}
         )
         assert filename == 'foo.txt'
 
@@ -258,7 +281,8 @@ class TestStorageOperations:
         storage = flask.current_app.storage.get_interface('storage.not-s3')
         storage.upload.assert_called_once_with(
             file_obj,
-            path=f'Folder-One/{filename}'
+            path=f'Folder-One/{filename}',
+            extra_args={}
         )
 
     @mock.patch.dict(
@@ -273,7 +297,8 @@ class TestStorageOperations:
         storage = flask.current_app.storage.get_interface('storage.s3')
         storage.upload.assert_called_once_with(
             file_obj,
-            path=f'Folder-Two/{filename}'
+            path=f'Folder-Two/{filename}',
+            extra_args={}
         )
 
     @mock.patch.dict(

@@ -258,7 +258,7 @@ class AzureStorage(base.StorageBackend):
 
         return [construct_entry(blob) for blob in list_iter]
 
-    def open(self, path: str, mode: typing.Union[base.FileMode, str]) -> AzureFile:
+    def open(self, path: str, mode: typing.Union[base.FileMode, str], extra_args=None) -> AzureFile:
         mode = base.FileMode.as_mode(mode)
 
         path = self._clean_path(path)

@@ -147,7 +147,7 @@ class StorageBackend:
         """
         raise NotImplementedError()
 
-    def open(self, path: str, mode: typing.Union[FileMode, str]) -> RemoteFile:
+    def open(self, path: str, mode: typing.Union[FileMode, str], extra_args=None) -> RemoteFile:
         """
         Returns a instance of RemoteFile for the given `path` that can be used for
         reading and/or writing depending on the `mode` given.
@@ -220,7 +220,8 @@ class StorageBackend:
         file_obj: typing.IO,
         path: str,
         *,
-        progress_callback: typing.Optional[ProgressCallback] = None
+        progress_callback: typing.Optional[ProgressCallback] = None,
+        extra_args=None,
     ):
         """
         Copies the contents of a file-like object `file_obj` to a remote file at `path`
@@ -231,7 +232,7 @@ class StorageBackend:
         bytes_written = 0
         buffer_size = 5 * 1024 * 1024
 
-        with self.open(path, FileMode.write) as outfile:
+        with self.open(path, FileMode.write, extra_args=extra_args) as outfile:
             buf = file_obj.read(buffer_size)
             while buf:
                 outfile.write(buf)

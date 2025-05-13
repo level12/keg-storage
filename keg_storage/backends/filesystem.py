@@ -107,7 +107,7 @@ class LocalFSStorage(base.InternalLinksStorageBackend):
                 ))
         return sorted(lst, key=attrgetter('name'))
 
-    def open(self, path: str, mode: Union[base.FileMode, str]):
+    def open(self, path: str, mode: Union[base.FileMode, str], extra_args=None):
         self._validate_path(path)
         path = self._resolve_path(path)
         if not self._is_under_root(path):

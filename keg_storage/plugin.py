@@ -240,7 +240,7 @@ class StorageOperations:
     @storage_args()
     def storage_upload_file(
         cls, file_object, filename, preserve_filename=False, storage_location=None,
-        storage_profile=None
+        storage_profile=None, content_type=None, content_encoding=None,
     ):
         """Push file data to storage. A UUID-based filename will be generated to prevent
         path collisions unless preserve_filename is set."""
@@ -249,8 +249,17 @@ class StorageOperations:
         storage_filename = (
             filename if preserve_filename else cls.storage_generate_filename(filename)
         )
+
+        extra_args = {}
+        if content_type:
+            extra_args['ContentType'] = content_type
+        if content_encoding:
+            extra_args['ContentEncoding'] = content_encoding
+
         storage_instance.upload(
-            file_object, path=cls.storage_prefix_path(storage_location, storage_filename)
+            file_object,
+            path=cls.storage_prefix_path(storage_location, storage_filename),
+            extra_args=extra_args,
         )
         return storage_filename
 

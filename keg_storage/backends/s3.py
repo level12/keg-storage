@@ -62,7 +62,7 @@ class S3Writer(S3FileBase):
     Because creating a multipart upload itself has an actual cost and there is no guarantee that
     anything will actually be written, we initialize the multipart upload lazily.
     """
-    def __init__(self, bucket, filename, client, chunk_size=10 * 1024 * 1024):
+    def __init__(self, bucket, filename, client, chunk_size=10 * 1024 * 1024, extra_args=None):
         super().__init__(FileMode.write, bucket, filename, client)
         # The upload key that we will get when we intialize the multipart upload
         self.multipart_id = None
@@ -75,6 +75,9 @@ class S3Writer(S3FileBase):
 
         # The maximum size of an uploaded part
         self.chunk_size = chunk_size
+
+        # Allow passing in things like ContentType or ContentEncoding
+        self.extra_args = extra_args or {}
 
     def _flush_buffer(self):
         """
@@ -108,7 +111,11 @@ class S3Writer(S3FileBase):
         """
         Create the S3 multipart upload
         """
-        mpu = self.s3.create_multipart_upload(Bucket=self.bucket, Key=self.filename)
+        mpu = self.s3.create_multipart_upload(
+            Bucket=self.bucket,
+            Key=self.filename,
+            **self.extra_args,
+        )
         self.multipart_id = mpu['UploadId']
 
     def _finalize_multipart(self):
@@ -233,10 +240,10 @@ class S3Storage(StorageBackend):
                 raise FileNotFoundInStorageError(storage_type=self, filename=path)
             raise
 
-    def _create_writer(self, path):
-        return S3Writer(self.bucket, path, self.client)
+    def _create_writer(self, path, extra_args=None):
+        return S3Writer(self.bucket, path, self.client, extra_args=extra_args)
 
-    def open(self, path: str, mode: typing.Union[FileMode, str]):
+    def open(self, path: str, mode: typing.Union[FileMode, str], extra_args=None):
         mode = FileMode.as_mode(mode)
 
         if mode & FileMode.read and mode & FileMode.write:
@@ -244,7 +251,7 @@ class S3Storage(StorageBackend):
         elif mode & FileMode.read:
             return self._create_reader(path)
         elif mode & FileMode.write:
-            return self._create_writer(path)
+            return self._create_writer(path, extra_args=extra_args)
         else:
             raise ValueError('Unsupported mode. Accepted modes are FileMode.read or FileMode.write')
 
@@ -271,6 +278,7 @@ class S3Storage(StorageBackend):
             expire: typing.Union[arrow.Arrow, datetime],
             output_path: typing.Optional[str] = None,
             content_type: typing.Optional[str] = None,
+            content_encoding: typing.Optional[str] = None,
     ) -> str:
         operation = ShareLinkOperation.as_operation(operation)
         if operation.name is None:
@@ -284,9 +292,13 @@ class S3Storage(StorageBackend):
                 extra_params['ResponseContentDisposition'] = f'attachment;filename={output_path}'
             if content_type:
                 extra_params['ResponseContentType'] = content_type
+            if content_encoding:
+                extra_params['ResponseContentEncoding'] = content_encoding
         elif operation == ShareLinkOperation.upload:
             method = 'put_object'
-            extra_params = {'ContentType': 'application/octet-stream'}
+            extra_params = {'ContentType': content_type or 'application/octet-stream'}
+            if content_encoding:
+                extra_params['ContentEncoding'] = content_encoding
         elif operation == ShareLinkOperation.remove:
             method = 'delete_object'
         else:  # pragma: no cover
