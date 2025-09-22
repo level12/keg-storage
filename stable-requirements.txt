@@ -1,6 +1,6 @@
 arrow==1.2.2
 attrs==22.1.0
-Authlib==1.0.1
+Authlib==1.6.4
 azure-core==1.25.0
 azure-storage-blob==12.13.1
 bcrypt==4.0.0
