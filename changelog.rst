@@ -1,6 +1,16 @@
 Changelog
 =========
 
+0.5.13 released 2026-09-03
+--------------------------
+
+- shift from authlib.jose to joserfc for jwt (a2f2bc0_)
+- Fix RTD build (ca8b881_)
+
+.. _a2f2bc0: https://github.com/level12/keg-storage/commit/a2f2bc0
+.. _ca8b881: https://github.com/level12/keg-storage/commit/ca8b881
+
+
 0.5.12 released 2025-05-13
 --------------------------
 
