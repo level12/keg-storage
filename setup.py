@@ -32,8 +32,8 @@ setup(
     version=version['VERSION'],
     install_requires=[
         'arrow',
-        'authlib',
         'humanize',
+        'joserfc',
         'BlazeUtils',
     ],
     extras_require={
@@ -55,6 +55,7 @@ setup(
             'flake8',
             'flask_webtest',
             'freezegun',
+            'kegelements',
             'paramiko',
             'pytest',
             'pytest-coverage',

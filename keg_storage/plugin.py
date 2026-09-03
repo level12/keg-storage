@@ -9,7 +9,7 @@ from typing import Mapping, Optional
 import arrow
 import flask
 import wrapt
-from authlib import jose
+from joserfc import errors as jwt_errors
 from werkzeug.utils import secure_filename
 
 from keg_storage import cli
@@ -103,9 +103,9 @@ class LinkViewMixin:
         try:
             return storage.deserialize_link_token(token=token)
         except (
-            jose.errors.BadSignatureError,
-            jose.errors.DecodeError,
-            jose.errors.ExpiredTokenError,
+            jwt_errors.BadSignatureError,
+            jwt_errors.DecodeError,
+            jwt_errors.ExpiredTokenError,
         ):
             flask.abort(403)
 

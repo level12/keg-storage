@@ -5,7 +5,10 @@ import typing
 from datetime import datetime
 
 import arrow
-from authlib import jose
+from joserfc import jwt
+from joserfc.jwk import OctKey
+from joserfc.jws import JWSRegistry
+from joserfc.jwt import JWTClaimsRegistry
 
 from keg_storage.utils import expire_time_to_seconds
 
@@ -282,6 +285,7 @@ class InternalLinksStorageBackend(StorageBackend):
     provide it's own endpoint to handle the requests.
     See plugin.LinkViewMixin for a base implementation of such an endpoint.
     """
+    TOKEN_JWS_REGISTRY = JWSRegistry(algorithms=['HS512'])
 
     def __init__(
             self,
@@ -306,6 +310,9 @@ class InternalLinksStorageBackend(StorageBackend):
             + (self.secret_key or b'').decode()
         )
         return digest_method(base_key.encode()).digest()
+
+    def get_token_signing_key(self, digest_method=hashlib.sha512):
+        return OctKey.import_key(self.get_token_signature(digest_method))
 
     def get_token_payload(self, payload, expires_in):
         now = int(time.time())
@@ -336,7 +343,12 @@ class InternalLinksStorageBackend(StorageBackend):
             int(expire_time_to_seconds(expire))
         )
         header = {'alg': 'HS512'}
-        return jose.jwt.encode(header, payload, self.get_token_signature())
+        return jwt.encode(
+            header,
+            payload,
+            self.get_token_signing_key(),
+            registry=self.TOKEN_JWS_REGISTRY,
+        )
 
     def deserialize_link_token(self, token: str) -> InternalLinkTokenData:
         """
@@ -345,10 +357,14 @@ class InternalLinksStorageBackend(StorageBackend):
         if self.secret_key is None:
             raise ValueError('Backend must be configured with secret_key to use this feature')
 
-        payload = jose.jwt.decode(token, self.get_token_signature(hashlib.sha512))
-        payload.validate()
+        token = jwt.decode(
+            token,
+            self.get_token_signing_key(hashlib.sha512),
+            registry=self.TOKEN_JWS_REGISTRY,
+        )
+        JWTClaimsRegistry().validate(token.claims)
 
-        return InternalLinkTokenData.deserialize(payload)
+        return InternalLinkTokenData.deserialize(token.claims)
 
     def link_to(
             self,
@@ -388,7 +404,7 @@ class InternalLinksStorageBackend(StorageBackend):
             expire=expire
         )
         return flask.url_for(
-            self.linked_endpoint, token=token.decode(), output_path=output_path, _external=True
+            self.linked_endpoint, token=token, output_path=output_path, _external=True
         )
 
 

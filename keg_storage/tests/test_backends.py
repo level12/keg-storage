@@ -10,7 +10,8 @@ import arrow
 import click
 import freezegun
 import pytest
-from authlib import jose
+from joserfc import jwt
+from joserfc import errors as jwt_errors
 
 import keg_storage
 from keg_storage.backends.base import (
@@ -307,16 +308,19 @@ class TestInternalLinkStorageBackend:
             expire=arrow.get(2020, 4, 27, 1)
         )
 
-        payload = jose.jwt.decode(token, backend.get_token_signature(hashlib.sha512))
-        payload.validate()
+        token = jwt.decode(
+            token,
+            backend.get_token_signing_key(hashlib.sha512),
+            registry=backend.TOKEN_JWS_REGISTRY,
+        )
 
-        assert payload == {
+        assert token.claims == {
             'key': 'foo',
             'op': 'd',
             'iat': arrow.get(2020, 4, 27).timestamp(),
             'exp': arrow.get(2020, 4, 27, 1).timestamp(),
         }
-        assert payload.header == {
+        assert token.header == {
             'alg': 'HS512',
             'typ': 'JWT',
         }
@@ -332,7 +336,7 @@ class TestInternalLinkStorageBackend:
         token = backend.create_link_token(path='foo', operation=ShareLinkOperation.download,
                                           expire=arrow.get(2020, 4, 27, 1))
         backend.name = 'fake1'
-        with pytest.raises(jose.errors.BadSignatureError):
+        with pytest.raises(jwt_errors.BadSignatureError):
             backend.deserialize_link_token(token)
 
     def test_deserialize_link_token_expired(self, tmp_path: pathlib.Path):
@@ -342,7 +346,7 @@ class TestInternalLinkStorageBackend:
                                               expire=arrow.get(2020, 4, 26, 23, 59, 59))
 
         with freezegun.freeze_time('2020-04-27'):
-            with pytest.raises(jose.errors.ExpiredTokenError):
+            with pytest.raises(jwt_errors.ExpiredTokenError):
                 backend.deserialize_link_token(token)
 
     @freezegun.freeze_time('2020-04-27')

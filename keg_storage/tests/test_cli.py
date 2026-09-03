@@ -227,7 +227,7 @@ class TestLink(CLIBase):
         assert results.output == 'Some error\nAborted!\n'
 
 
-@mock.patch('flask.current_app.storage', 'get_interface', autospec=True, spec_set=True)
+@mock.patch('flask.current_app.storage.get_interface', autospec=True, spec_set=True)
 @mock.patch('keg_storage.utils.reencrypt', autospec=True, spec_set=True)
 class TestReencrypt(CLIBase):
     class InputRunner(click.testing.CliRunner):
