@@ -1,0 +1,106 @@
+[build-system]
+requires = [
+    'hatchling',
+]
+build-backend = 'hatchling.build'
+
+
+[project]
+name = 'KegStorage'
+description = 'A simple storage interface with multiple backends for use in a Keg app.'
+authors = [
+    {name = 'Level 12 Developers', email = 'devteam@level12.io'},
+]
+requires-python = '>=3.10'
+dynamic = ['version']
+readme = 'readme.rst'
+license = 'BSD-3-Clause'
+license-files = ['license.txt']
+classifiers = [
+    'Intended Audience :: Developers',
+    'License :: OSI Approved :: BSD License',
+    'Operating System :: OS Independent',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
+    'Programming Language :: Python :: 3.14',
+]
+dependencies = [
+    'arrow',
+    'humanize',
+    'joserfc',
+    'BlazeUtils',
+]
+
+
+[project.urls]
+Homepage = 'https://github.com/level12/keg-storage'
+Repository = 'https://github.com/level12/keg-storage'
+
+
+[project.optional-dependencies]
+sftp = ['paramiko']
+aws = ['boto3']
+azure = ['azure-storage-blob>=12.6.0']
+keg = ['kegelements']
+test = [
+    'azure-storage-blob>=12.6.0',
+    'boto3',
+    'flask-webtest',
+    'freezegun',
+    'kegelements',
+    'paramiko',
+    'pytest',
+    'pytest-cov',
+    'wrapt',
+]
+
+
+[dependency-groups]
+dev = [
+    {include-group = "pytest"},
+    {include-group = "prek"},
+    {include-group = "audit"},
+    {include-group = "build"},
+    {include-group = "docs"},
+    {include-group = "nox"},
+    'click',
+    'ruff==0.16.2',
+]
+# Used by nox
+pytest = [
+    'azure-storage-blob>=12.6.0',
+    'boto3',
+    'cryptography<43; python_version < "3.13"',
+    'flask-webtest',
+    'freezegun',
+    'kegelements',
+    'paramiko',
+    'pytest',
+    'pytest-cov',
+    'wrapt',
+]
+# Used by nox
+prek = [
+    'prek',
+]
+# Used by nox
+audit = [
+    'pip-audit',
+]
+# Used by nox
+build = [
+    'build',
+    'twine',
+]
+# Used by nox
+docs = [
+    {include-group = "pytest"},
+    'sphinx',
+]
+# Used by CI
+nox = [
+    'nox',
+]

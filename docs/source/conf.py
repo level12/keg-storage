@@ -14,22 +14,18 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
-import keg_storage
 import datetime as dt
 
-import configparser
+import keg_storage
 
 
 # -- Project information -----------------------------------------------------
 
 project = 'Keg-Storage'
-copyright = u"{year} Level 12".format(year=dt.datetime.utcnow().year)
+copyright = f'{dt.date.today().year} Level 12'
 
 
-cfg = configparser.SafeConfigParser()
-cfg.read('../../setup.cfg')
-
-tag = cfg.get('egg_info', 'tag_build')
+tag = ''
 
 html_context = {
     'prerelease': bool(tag),  # True if tag is not the empty string
@@ -78,11 +74,5 @@ html_theme_options = {
         'Level 12': 'https://www.level12.io',
         'File an Issue': 'https://github.com/level12/keg-storage/issues/new',
     },
-    'show_powered_by': True
-
+    'show_powered_by': True,
 }
-
-# Add any paths that contain custom static files (such as style sheets) here,
-# relative to this directory. They are copied after the builtin static files,
-# so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
