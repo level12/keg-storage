@@ -13,7 +13,7 @@ gh_repo: keg-storage
 project_name: KegStorage
 py_module: keg_storage
 python_version: '3.14'
-python_version_min: '3.10'
+python_version_min: '3.12'
 script_name: ''
 use_circleci: false
 use_codecov: true
