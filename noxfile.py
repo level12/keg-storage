@@ -20,12 +20,11 @@ def pytest(session: nox.Session):
 def pytest_stable(session: nox.Session):
     requirements = [
         requirement
-        for filename in ('stable-requirements.txt', 'stable-requirements-keg.txt')
-        for requirement in Path(filename).read_text().splitlines()
-        if requirement and not requirement.lower().startswith(('flake8', 'tox'))
+        for requirement in Path('stable-requirements.txt').read_text().splitlines()
+        if requirement
     ]
     session.install('.', *requirements)
-    pytest_run(session, '-W', 'ignore::DeprecationWarning')
+    pytest_run(session)
 
 
 @nox.session
