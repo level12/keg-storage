@@ -14,7 +14,7 @@ charset-normalizer==3.5.2
 click==8.5.1
 colorama==0.4.6 ; sys_platform == 'win32'
 coverage==7.17.3
-cryptography==42.0.8
+cryptography==50.0.2
 flask==3.1.3
 flask-sqlalchemy==3.1.1
 flask-webtest==0.1.6
@@ -30,7 +30,7 @@ isodate==0.7.2
 itsdangerous==2.2.0
 jinja2==3.1.6
 jmespath==1.1.0
-joserfc==1.5.0
+joserfc==1.8.0
 keg==0.11.2
 kegelements==0.13.0
 legacy-cgi==2.6.4 ; python_full_version >= '3.13'

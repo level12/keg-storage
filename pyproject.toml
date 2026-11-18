@@ -71,7 +71,6 @@ dev = [
 pytest = [
     'azure-storage-blob>=12.6.0',
     'boto3',
-    'cryptography<43; python_version < "3.13"',
     'flask-webtest',
     'freezegun',
     'kegelements',
