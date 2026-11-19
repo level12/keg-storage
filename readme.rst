@@ -1,11 +1,11 @@
 Keg-Storage
 ###########
 
-.. image:: https://circleci.com/gh/level12/keg-storage.svg?style=svg
-  :target: https://circleci.com/gh/level12/keg-storage
+.. image:: https://github.com/level12/keg-storage/actions/workflows/nox.yaml/badge.svg
+  :target: https://github.com/level12/keg-storage/actions/workflows/nox.yaml
 
-.. image:: https://codecov.io/github/level12/keg-storage/coverage.svg?branch=master
-  :target: https://codecov.io/github/level12/keg-storage?branch=master
+.. image:: https://codecov.io/gh/level12/keg-storage/branch/master/graph/badge.svg
+  :target: https://codecov.io/gh/level12/keg-storage
 
 .. _Keg: https://pypi.python.org/pypi/Keg
 
