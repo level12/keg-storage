@@ -207,6 +207,31 @@ class TestStorageOperations:
             ObjectView.storage_prefix_path(StorageLocation.folder1, '.foo.txt')
             == 'Folder-One/foo.txt'
         )
+        assert (
+            ObjectView.storage_prefix_path(StorageLocation.folder1, 'nested/foo.txt')
+            == 'Folder-One/nested/foo.txt'
+        )
+        assert ObjectView.storage_prefix_path(None, 'nested/foo.txt') == 'nested/foo.txt'
+
+    @pytest.mark.parametrize(
+        'filename',
+        [
+            '',
+            '/foo.txt',
+            '../foo.txt',
+            'nested/../foo.txt',
+            './foo.txt',
+            'nested/./foo.txt',
+            'nested//foo.txt',
+            'nested/foo.txt/',
+            'nested\\foo.txt',
+            'nested/\x00foo.txt',
+            'nested/\nfoo.txt',
+        ],
+    )
+    def test_storage_prefix_path_rejects_unsafe_filename(self, filename):
+        with pytest.raises(ValueError, match='Invalid storage filename'):
+            ObjectView.storage_prefix_path(StorageLocation.folder1, filename)
 
     def test_storage_get_profile(self):
         assert ObjectView.storage_get_profile(

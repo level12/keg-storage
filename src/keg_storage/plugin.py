@@ -3,6 +3,7 @@ from collections.abc import Mapping
 from enum import Enum
 import io
 import logging
+import unicodedata
 import uuid
 import warnings
 
@@ -195,7 +196,17 @@ class StorageOperations:
 
     @staticmethod
     def storage_prefix_path(location: Enum | None, filename: str):
-        """Join the location path with the filename to get the full object path"""
+        """Validate and join a relative filename to a storage location."""
+        segments = filename.split('/')
+        if (
+            '\\' in filename
+            # reject control characters
+            or any(unicodedata.category(char) == 'Cc' for char in filename)
+            # reject directory escapes
+            or any(segment in {'', '.', '..'} for segment in segments)
+        ):
+            raise ValueError('Invalid storage filename')
+
         if filename.startswith('.'):
             filename = filename[1:]
         if location:

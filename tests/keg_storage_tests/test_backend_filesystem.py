@@ -213,6 +213,46 @@ class TestLocalFSStorage:
         with root.joinpath(file_path_copy).open('rb') as fp:
             assert fp.read() == file_data1
 
+    def test_copy_rejects_paths_outside_root(self, tmp_path: pathlib.Path):
+        root = tmp_path / 'root'
+        root.mkdir()
+        outside = tmp_path / 'outside.txt'
+        outside.write_bytes(b'secret')
+
+        fs = backends.LocalFSStorage(root)
+
+        for source in ('../outside.txt', str(outside)):
+            with pytest.raises(backends.LocalFSError, match='Invalid path'):
+                fs.copy(source, 'copied.txt')
+
+        assert not (root / 'copied.txt').exists()
+
+    def test_copy_rejects_source_symlink(self, tmp_path: pathlib.Path):
+        root = tmp_path / 'root'
+        root.mkdir()
+        outside = tmp_path / 'outside.txt'
+        outside.write_bytes(b'secret')
+        (root / 'outside-link.txt').symlink_to(outside)
+
+        fs = backends.LocalFSStorage(root)
+
+        with pytest.raises(backends.LocalFSError, match='Invalid path'):
+            fs.copy('outside-link.txt', 'copied.txt')
+
+        assert not (root / 'copied.txt').exists()
+
+    def test_copy_rejects_destination_outside_root(self, tmp_path: pathlib.Path):
+        root = tmp_path / 'root'
+        root.mkdir()
+        (root / 'source.txt').write_bytes(b'ordinary')
+
+        fs = backends.LocalFSStorage(root)
+
+        with pytest.raises(backends.LocalFSError, match='Invalid path'):
+            fs.copy('source.txt', '../copied.txt')
+
+        assert not (tmp_path / 'copied.txt').exists()
+
     def test_open_for_writing_creates_directories(self, tmp_path: pathlib.Path):
         root = tmp_path.joinpath('root')
         root.mkdir()
