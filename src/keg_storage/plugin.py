@@ -284,6 +284,8 @@ class StorageOperations:
         return cls.storage_upload_file(
             file_storage.stream,
             file_storage.filename,
+            storage_location=storage_location,
+            storage_profile=storage_profile,
         )
 
     @classmethod

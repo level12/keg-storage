@@ -367,6 +367,36 @@ class TestStorageOperations:
 
     @mock.patch.dict(
         'flask.current_app.storage._interfaces',
+        {
+            'storage.s3': mock.Mock(spec=backends.StorageBackend),
+            'storage.not-s3': mock.Mock(spec=backends.StorageBackend),
+        },
+    )
+    @mock.patch('keg_storage.plugin.uuid.uuid4', lambda: 'bar')
+    def test_storage_upload_form_file_with_overrides(self):
+        with flask.current_app.test_request_context(
+            '/object',
+            method='POST',
+            data={'my_file': (io.BytesIO(b'12345'), 'foo.txt')},
+        ):
+            filename = ObjectView.storage_upload_form_file(
+                'my_file',
+                storage_location=StorageLocation.folder2,
+                storage_profile='storage.not-s3',
+            )
+
+        default_storage = flask.current_app.storage.get_interface('storage.s3')
+        alternate_storage = flask.current_app.storage.get_interface('storage.not-s3')
+        default_storage.upload.assert_not_called()
+        alternate_storage.upload.assert_called_once_with(
+            mock.ANY,
+            path='Folder-Two/bar.txt',
+            extra_args={},
+        )
+        assert filename == 'bar.txt'
+
+    @mock.patch.dict(
+        'flask.current_app.storage._interfaces',
         {'storage.s3': mock.Mock(spec=backends.StorageBackend)},
     )
     def test_storage_download_file(self):
