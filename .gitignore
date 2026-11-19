@@ -1,16 +1,41 @@
+# Python
 *.pyc
-*.pyo
 *.egg-info
-.cache/
-build/
-dist/
-.ci/
+.venv
 
-.coverage
-coverage.xml
-.tox
-htmlcov/
-pytest-reports/
+# Tox/Nox/Tests/Coverage
+/.nox
+/.tox
+/ci/coverage-html
+*.coverage
+/coverage.xml
+*.pytests.xml
+.pytest_cache
 
-.mypy_cache/
-.python-version
+
+# Editor Clutter
+/.vscode/*
+!/.vscode/settings.json
+.idea
+
+
+# Build related
+dist
+/build
+/docs/build
+npm-debug.log
+.*-cache
+node_modules
+
+
+# Local dev files
+/mise.local.toml
+/tmp
+
+# Terraform
+*.tfstate*
+tf.plan
+.terraform
+
+
+# Project specific

@@ -1,6 +1,16 @@
 Changelog
 =========
 
+0.20261119.1 released 2026-11-19
+--------------------------------
+
+- modernize packaging and development tooling with Coppy, uv, Nox, prek, and
+  GitHub Actions
+- support and test Python 3.12 through 3.15
+- remove the stale direct six pin from stable dependency testing
+- refresh the stable dependency snapshot and remove blanket warning suppression
+
+
 0.5.13 released 2026-09-03
 --------------------------
 
