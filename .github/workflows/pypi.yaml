@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
 
     environment:
-      name: pypi
+      name: pypi-publish
       url: https://pypi.org/p/KegStorage
 
     permissions:
