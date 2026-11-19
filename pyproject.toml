@@ -13,7 +13,7 @@ authors = [
 ]
 requires-python = '>=3.12'
 dynamic = ['version']
-readme = 'readme.rst'
+readme = 'readme.md'
 license = 'BSD-3-Clause'
 license-files = ['license.txt']
 classifiers = [
