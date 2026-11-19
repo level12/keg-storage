@@ -12,6 +12,7 @@ from .base import (
     RemoteFile,
     ShareLinkOperation,
     StorageBackend,
+    attachment_content_disposition,
 )
 
 
@@ -286,7 +287,9 @@ class S3Storage(StorageBackend):
         if operation == ShareLinkOperation.download:
             method = 'get_object'
             if output_path:
-                extra_params['ResponseContentDisposition'] = f'attachment;filename={output_path}'
+                extra_params['ResponseContentDisposition'] = attachment_content_disposition(
+                    output_path,
+                )
             if content_type:
                 extra_params['ResponseContentType'] = content_type
             if content_encoding:

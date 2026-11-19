@@ -117,9 +117,10 @@ class LinkViewMixin:
             flask.abort(403)
 
         headers = {}
-        output_path = flask.request.args.get('output_path')
-        if output_path:
-            headers['Content-Disposition'] = f'attachment; filename={output_path}'
+        if token_data.output_path:
+            headers['Content-Disposition'] = backends.base.attachment_content_disposition(
+                token_data.output_path,
+            )
 
         fp = storage.open(token_data.path, backends.FileMode.read)
         return flask.Response(

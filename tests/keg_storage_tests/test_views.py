@@ -2,6 +2,7 @@ import io
 import os
 import pathlib
 from unittest import mock
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import arrow
 import flask
@@ -93,12 +94,25 @@ class TestViewMixin:
             expire=arrow.utcnow().shift(hours=1),
             output_path='myfile.txt',
         )
+        assert 'output_path' not in url
 
         resp = self.client.get(url, headers={'StorageRoot': str(tmp_path)})
         assert resp.status_code == 200
         assert resp.content_type == 'application/octet-stream'
-        assert resp.content_disposition == 'attachment; filename=myfile.txt'
+        assert resp.content_disposition == (
+            'attachment; filename="myfile.txt"; filename*=UTF-8\'\'myfile.txt'
+        )
         assert resp.body == b'foo'
+
+        parsed = urlparse(url)
+        query = parse_qs(parsed.query)
+        query['output_path'] = ['evil.html']
+        tampered_url = urlunparse(parsed._replace(query=urlencode(query, doseq=True)))
+
+        resp = self.client.get(tampered_url, headers={'StorageRoot': str(tmp_path)})
+        assert resp.content_disposition == (
+            'attachment; filename="myfile.txt"; filename*=UTF-8\'\'myfile.txt'
+        )
 
     @pytest.mark.parametrize('method', ['post', 'put'])
     def test_post_put_operation_not_allowed(self, tmp_path: pathlib.Path, method: str):

@@ -346,7 +346,9 @@ class TestAzureStorageUtilities:
         )
         parsed = urlparse.urlparse(url)
         qs = urlparse.parse_qs(parsed.query)
-        assert qs['rscd'] == ['attachment;filename=myfile.txt']
+        assert qs['rscd'] == [
+            'attachment; filename="myfile.txt"; filename*=UTF-8\'\'myfile.txt',
+        ]
 
     def test_sas_create_container_url(self):
         storage = backends.AzureStorage(
