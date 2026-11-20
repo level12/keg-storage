@@ -20,6 +20,7 @@ from keg_storage.backends.base import (
     ListEntry,
     RemoteFile,
     ShareLinkOperation,
+    attachment_content_disposition,
 )
 from keg_storage.cli import handle_not_found
 
@@ -249,6 +250,15 @@ class TestInternalLinkTokenData:
         tok_data = InternalLinkTokenData.deserialize({'key': 'foo', 'op': 'u'})
         assert tok_data.path == 'foo'
         assert tok_data.operations == ShareLinkOperation.upload
+        assert tok_data.output_path is None
+
+    def test_serialize_output_path(self):
+        tok_data = InternalLinkTokenData(
+            path='foo',
+            operations=ShareLinkOperation.download,
+            output_path='report.txt',
+        )
+        assert tok_data.serialize() == {'key': 'foo', 'op': 'd', 'out': 'report.txt'}
 
     def test_allowed_operations(self):
         tok_data = InternalLinkTokenData(path='foo', operations=ShareLinkOperation.download)
@@ -318,6 +328,17 @@ class TestInternalLinkStorageBackend:
             'alg': 'HS512',
             'typ': 'JWT',
         }
+
+    def test_attachment_content_disposition_quotes_parameters(self):
+        result = attachment_content_disposition('report.txt"; filename*=evil')
+        assert result == (
+            'attachment; filename="report.txt\\"; filename*=evil"; '
+            "filename*=UTF-8''report.txt%22%3B%20filename%2A%3Devil"
+        )
+
+    def test_attachment_content_disposition_rejects_control_characters(self):
+        with pytest.raises(ValueError, match='control characters'):
+            attachment_content_disposition('report.txt\r\nX-Evil: true')
 
     def test_deserialize_link_token_no_secret_key(self, tmp_path: pathlib.Path):
         backend = FakeBackend(tmp_path)

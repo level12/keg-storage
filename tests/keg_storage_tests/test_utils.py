@@ -35,10 +35,26 @@ class TestReencrypt:
         m_storage.put.side_effect = fake_put
         return m_storage
 
-    def create_mock_storage(self, old, new, plaintext=DEFAULT_PLAINTEXT):
+    def create_mock_storage(self, old, plaintext=DEFAULT_PLAINTEXT):
         n_ct = io.BytesIO()
         o_ct = b''.join(ke_crypto.encrypt_fileobj(old, io.BytesIO(plaintext)))
         return self.mock_storage(o_ct, n_ct), o_ct, n_ct
+
+    @staticmethod
+    def find_padding_rejecting_keys(ciphertext, count, exclude):
+        """Find candidate keys that reliably fail this ciphertext's padding check."""
+        keys = []
+        for i in range(100_000):
+            key = i.to_bytes(32, 'big')
+            if key in exclude:
+                continue
+            try:
+                ke_crypto.decrypt_fileobj(key, io.BytesIO(ciphertext), io.BytesIO(), 1024)
+            except ValueError:
+                keys.append(key)
+                if len(keys) == count:
+                    return keys
+        raise AssertionError(f'only found {len(keys)} padding-rejecting keys')
 
     def test_reencrypt_with_bad_keys_throws_key_error(self):
         with pytest.raises(utils.EncryptionKeyException):
@@ -51,13 +67,10 @@ class TestReencrypt:
             utils.reencrypt(None, 'file', [b'a', b'b' * 20] * 32, b'')
 
     def test_reencrypt_takes_multiple_key(self):
-        (
-            k1,
-            k2,
-            k3,
-        ) = b'a' * 32, b'b' * 32, b'c' * 32
+        k1 = b'a' * 32
+        store, o_ct, n_ct = self.create_mock_storage(k1)
+        k2, k3 = self.find_padding_rejecting_keys(o_ct, 2, exclude={k1})
 
-        store, o_ct, n_ct = self.create_mock_storage(k1, k3)
         utils.reencrypt(store, 'file', [k1, k2], k3)
 
         n_ct.seek(0)
@@ -67,9 +80,10 @@ class TestReencrypt:
         assert new_plaintext.getvalue() == DEFAULT_PLAINTEXT
 
     def test_reencrypt_with_single_key(self):
-        k1, k2 = b'a' * 32, b'b' * 32
+        k1 = b'a' * 32
+        store, o_ct, n_ct = self.create_mock_storage(k1)
+        [k2] = self.find_padding_rejecting_keys(o_ct, 1, exclude={k1})
 
-        store, o_ct, n_ct = self.create_mock_storage(k1, k2)
         utils.reencrypt(store, 'file', k1, k2)
 
         assert store.get.call_count == 1
@@ -89,15 +103,85 @@ class TestReencrypt:
         assert new_plaintext.getvalue() == DEFAULT_PLAINTEXT
 
     def test_with_bad_key(self):
-        (
-            k1,
-            k2,
-            k3,
-        ) = b'a' * 32, b'b' * 32, b'c' * 32
-        store, o_ct, n_ct = self.create_mock_storage(k2, k3)
+        k2 = b'b' * 32
+        store, o_ct, n_ct = self.create_mock_storage(k2)
+        k1, k3 = self.find_padding_rejecting_keys(o_ct, 2, exclude={k2})
 
         with pytest.raises(utils.DecryptionException):
             utils.reencrypt(store, 'file', k1, k3)
+
+        assert store.put.call_count == 0
+
+    def test_without_valid_old_keys(self):
+        with pytest.raises(utils.EncryptionKeyException, match='No Keys Found'):
+            utils.reencrypt(None, 'file', [b'short'], b'c' * 32)
+
+    def test_already_encrypted_with_new_key_is_skipped(self):
+        # A restarted run: the file is already under the new key.
+        k2 = b'b' * 32
+        store, o_ct, n_ct = self.create_mock_storage(k2)
+        [k1] = self.find_padding_rejecting_keys(o_ct, 1, exclude={k2})
+
+        utils.reencrypt(store, 'file', k1, k2)
+
+        assert store.put.call_count == 0
+
+    def test_new_key_also_listed_as_old_key(self):
+        k2 = b'b' * 32
+        store, o_ct, n_ct = self.create_mock_storage(k2)
+        [k1] = self.find_padding_rejecting_keys(o_ct, 1, exclude={k2})
+
+        utils.reencrypt(store, 'file', [k1, k2], k2)
+
+        assert store.put.call_count == 0
+
+    @staticmethod
+    def find_padding_collision(ciphertext, exclude):
+        """Find a wrong key that still decrypts ciphertext with valid PKCS7 padding."""
+        for i in range(100_000):
+            key = i.to_bytes(32, 'big')
+            if key in exclude:
+                continue
+            try:
+                ke_crypto.decrypt_fileobj(key, io.BytesIO(ciphertext), io.BytesIO(), 1024)
+            except ValueError:
+                continue
+            return key
+        raise AssertionError('no padding collision found')
+
+    def test_wrong_old_key_with_valid_padding_does_not_corrupt_restarted_file(self):
+        # KS-03: file already under the new key, but a wrong old key (tried first) also yields
+        # valid padding. Previously that garbage was re-encrypted and overwrote the file.
+        k_new = b'c' * 32
+        store, o_ct, n_ct = self.create_mock_storage(k_new, plaintext=b'secret' * 10)
+        k_wrong = self.find_padding_collision(o_ct, exclude={k_new})
+
+        with pytest.raises(utils.DecryptionException, match='Multiple keys'):
+            utils.reencrypt(store, 'file', k_wrong, k_new)
+
+        assert store.put.call_count == 0
+
+    def test_two_old_keys_with_valid_padding_is_ambiguous(self):
+        k1, k_new = b'a' * 32, b'c' * 32
+        store, o_ct, n_ct = self.create_mock_storage(k1, plaintext=b'secret' * 10)
+        k_wrong = self.find_padding_collision(o_ct, exclude={k1, k_new})
+
+        with pytest.raises(utils.DecryptionException, match='Multiple keys'):
+            utils.reencrypt(store, 'file', [k_wrong, k1], k_new)
+
+        assert store.put.call_count == 0
+
+    def test_unexpected_decrypt_error_propagates(self):
+        k1, k2 = b'a' * 32, b'b' * 32
+        store, o_ct, n_ct = self.create_mock_storage(k1)
+
+        with (
+            mock.patch.object(ke_crypto, 'decrypt_bytesio', side_effect=OSError('disk')),
+            pytest.raises(OSError, match='disk'),
+        ):
+            utils.reencrypt(store, 'file', k1, k2)
+
+        assert store.put.call_count == 0
 
 
 @pytest.mark.skipif(ke_crypto is not None, reason='Only run with keg elements not installed')

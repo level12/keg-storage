@@ -3,6 +3,7 @@ from collections.abc import Mapping
 from enum import Enum
 import io
 import logging
+import unicodedata
 import uuid
 import warnings
 
@@ -116,9 +117,10 @@ class LinkViewMixin:
             flask.abort(403)
 
         headers = {}
-        output_path = flask.request.args.get('output_path')
-        if output_path:
-            headers['Content-Disposition'] = f'attachment; filename={output_path}'
+        if token_data.output_path:
+            headers['Content-Disposition'] = backends.base.attachment_content_disposition(
+                token_data.output_path,
+            )
 
         fp = storage.open(token_data.path, backends.FileMode.read)
         return flask.Response(
@@ -195,7 +197,17 @@ class StorageOperations:
 
     @staticmethod
     def storage_prefix_path(location: Enum | None, filename: str):
-        """Join the location path with the filename to get the full object path"""
+        """Validate and join a relative filename to a storage location."""
+        segments = filename.split('/')
+        if (
+            '\\' in filename
+            # reject control characters
+            or any(unicodedata.category(char) == 'Cc' for char in filename)
+            # reject directory escapes
+            or any(segment in {'', '.', '..'} for segment in segments)
+        ):
+            raise ValueError('Invalid storage filename')
+
         if filename.startswith('.'):
             filename = filename[1:]
         if location:
@@ -203,12 +215,12 @@ class StorageOperations:
         return filename
 
     @staticmethod
-    def storage_generate_filename(filename):
+    def storage_generate_filename(filename) -> str:
         """Generate a UUID-based filename for an object, typically for upload to prevent
         path collisions. If the provided original filename has an extension, honor that
         extension."""
         name_parts = filename.rsplit('.', 1)
-        new_filename = uuid.uuid4()
+        new_filename = str(uuid.uuid4())
         if len(name_parts) > 1:
             extension = name_parts[-1]
             return f'{new_filename}.{extension}'
@@ -272,6 +284,8 @@ class StorageOperations:
         return cls.storage_upload_file(
             file_storage.stream,
             file_storage.filename,
+            storage_location=storage_location,
+            storage_profile=storage_profile,
         )
 
     @classmethod

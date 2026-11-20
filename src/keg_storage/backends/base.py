@@ -3,6 +3,7 @@ import enum
 import hashlib
 import time
 import typing
+import urllib.parse
 
 import arrow
 from joserfc import jwt
@@ -14,6 +15,17 @@ from keg_storage.utils import expire_time_to_seconds
 
 
 ProgressCallback = typing.Callable[[int], None]
+
+
+def attachment_content_disposition(filename: str) -> str:
+    """Build a safe attachment disposition that preserves UTF-8 filenames."""
+    if any(ord(char) < 32 or ord(char) == 127 for char in filename):
+        raise ValueError('filename cannot contain control characters')
+
+    ascii_filename = filename.encode('ascii', errors='replace').decode()
+    quoted_filename = ascii_filename.replace('\\', '\\\\').replace('"', '\\"')
+    encoded_filename = urllib.parse.quote(filename, safe='')
+    return f'attachment; filename="{quoted_filename}"; filename*=UTF-8\'\'{encoded_filename}'
 
 
 class ListEntry(typing.NamedTuple):
@@ -253,13 +265,21 @@ class StorageBackend:
 class InternalLinkTokenData(typing.NamedTuple):
     path: str
     operations: ShareLinkOperation
+    output_path: str | None = None
 
     def serialize(self) -> typing.Mapping[str, str]:
-        return {'key': self.path, 'op': str(self.operations)}
+        data = {'key': self.path, 'op': str(self.operations)}
+        if self.output_path is not None:
+            data['out'] = self.output_path
+        return data
 
     @classmethod
     def deserialize(cls, data: typing.Mapping[str, str]) -> 'InternalLinkTokenData':
-        return cls(path=data['key'], operations=ShareLinkOperation.as_operation(data['op']))
+        return cls(
+            path=data['key'],
+            operations=ShareLinkOperation.as_operation(data['op']),
+            output_path=data.get('out'),
+        )
 
     @property
     def allow_upload(self) -> bool:
@@ -320,6 +340,7 @@ class InternalLinksStorageBackend(StorageBackend):
         path: str,
         operation: ShareLinkOperation | str,
         expire: arrow.Arrow | datetime,
+        output_path: str | None = None,
     ):
         """
         Create a signed JWT authorizing the user to perform the specified operations
@@ -327,7 +348,11 @@ class InternalLinksStorageBackend(StorageBackend):
         if self.secret_key is None:
             raise ValueError('Backend must be configured with secret_key to use this feature')
 
-        token_data = InternalLinkTokenData(path=path, operations=operation)
+        token_data = InternalLinkTokenData(
+            path=path,
+            operations=operation,
+            output_path=output_path,
+        )
         payload = self.get_token_payload(
             token_data.serialize(),
             int(expire_time_to_seconds(expire)),
@@ -388,11 +413,15 @@ class InternalLinksStorageBackend(StorageBackend):
                 'Backend must be configured with linked_endpoint and secret_key to use this feature',
             )
 
-        token = self.create_link_token(path=path, operation=operation, expire=expire)
+        token = self.create_link_token(
+            path=path,
+            operation=operation,
+            expire=expire,
+            output_path=output_path,
+        )
         return flask.url_for(
             self.linked_endpoint,
             token=token,
-            output_path=output_path,
             _external=True,
         )
 

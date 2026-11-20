@@ -1,6 +1,22 @@
 Changelog
 =========
 
+Unreleased
+----------
+
+- **Breaking (SFTP):** confine operations to relative paths, with an optional
+  ``root`` prefix. Existing absolute keys now raise ``SFTPError('Invalid path')``;
+  migrate by configuring ``root='/'`` and dropping the leading ``/`` from each
+  key. Previously issued internal links containing absolute keys no longer work.
+- reject LocalFS copies whose source and destination are the same physical file
+  instead of truncating the file
+- return string UUID filenames for extensionless uploads and duplicates
+- keep the test application in distribution wheels while requiring its local
+  storage root and link-signing secret to be supplied through
+  ``KEG_STORAGE_TA_ROOT`` and ``KEG_STORAGE_TA_SECRET_KEY``; request headers can
+  no longer select the storage root
+
+
 0.20261119.1 released 2026-11-19
 --------------------------------
 

@@ -2,6 +2,8 @@ import io
 import os
 import pathlib
 from unittest import mock
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
+import uuid
 
 import arrow
 import flask
@@ -13,21 +15,35 @@ from keg_storage import ShareLinkOperation, backends
 from keg_storage_ta.views import ObjectView, StorageLocation, create_local_storage
 
 
+TEST_LINK_SECRET_KEY = b'test-only-link-signing-secret'
+
+
+def create_test_local_storage(root: pathlib.Path):
+    return create_local_storage(root, TEST_LINK_SECRET_KEY)
+
+
 class TestViewMixin:
+    @pytest.fixture(autouse=True)
+    def configure_link_storage(self, tmp_path: pathlib.Path):
+        flask.current_app.config.update(
+            KEG_STORAGE_TA_ROOT=tmp_path,
+            KEG_STORAGE_TA_SECRET_KEY=TEST_LINK_SECRET_KEY,
+        )
+
     def setup_method(self):
         self.client = flask_webtest.TestApp(flask.current_app)
 
     def test_get_no_token(self, tmp_path: pathlib.Path):
         url = flask.url_for('public.link-view')
 
-        resp = self.client.get(url, headers={'StorageRoot': str(tmp_path)}, status=404)
+        resp = self.client.get(url, status=404)
         assert resp.status_code == 404
 
-        resp = self.client.get(f'{url}?token', headers={'StorageRoot': str(tmp_path)}, status=404)
+        resp = self.client.get(f'{url}?token', status=404)
         assert resp.status_code == 404
 
     def test_expired_token(self, tmp_path: pathlib.Path):
-        storage = create_local_storage(tmp_path)
+        storage = create_test_local_storage(tmp_path)
 
         now = arrow.utcnow()
         url = storage.link_to(
@@ -37,11 +53,11 @@ class TestViewMixin:
         )
 
         with freezegun.freeze_time(now.shift(hours=1, seconds=1).datetime):
-            resp = self.client.get(url, headers={'StorageRoot': str(tmp_path)}, status=403)
+            resp = self.client.get(url, status=403)
         assert resp.status_code == 403
 
     def test_bad_signature(self, tmp_path: pathlib.Path):
-        storage = create_local_storage(tmp_path)
+        storage = create_test_local_storage(tmp_path)
         storage.name = 'foo'
 
         url = storage.link_to(
@@ -50,11 +66,22 @@ class TestViewMixin:
             expire=arrow.utcnow().shift(hours=1),
         )
 
-        resp = self.client.get(url, headers={'StorageRoot': str(tmp_path)}, status=403)
+        resp = self.client.get(url, status=403)
+        assert resp.status_code == 403
+
+    def test_legacy_public_secret_rejected(self, tmp_path: pathlib.Path):
+        storage = create_local_storage(tmp_path, b'a' * 32)
+        url = storage.link_to(
+            path='abc.txt',
+            operation=ShareLinkOperation.download,
+            expire=arrow.utcnow().shift(hours=1),
+        )
+
+        resp = self.client.get(url, status=403)
         assert resp.status_code == 403
 
     def test_get_operation_not_allowed(self, tmp_path: pathlib.Path):
-        storage = create_local_storage(tmp_path)
+        storage = create_test_local_storage(tmp_path)
 
         url = storage.link_to(
             path='abc.txt',
@@ -62,11 +89,11 @@ class TestViewMixin:
             expire=arrow.utcnow().shift(hours=1),
         )
 
-        resp = self.client.get(url, headers={'StorageRoot': str(tmp_path)}, status=403)
+        resp = self.client.get(url, status=403)
         assert resp.status_code == 403
 
     def test_get_success(self, tmp_path: pathlib.Path):
-        storage = create_local_storage(tmp_path)
+        storage = create_test_local_storage(tmp_path)
         storage.upload(io.BytesIO(b'foo'), 'abc.txt')
         assert tmp_path.joinpath('abc.txt').exists()
 
@@ -77,13 +104,16 @@ class TestViewMixin:
         )
         assert 'output_path' not in url
 
-        resp = self.client.get(url, headers={'StorageRoot': str(tmp_path)})
+        attacker_root = tmp_path / 'attacker-selected-root'
+        attacker_root.mkdir()
+        resp = self.client.get(url, headers={'StorageRoot': str(attacker_root)})
         assert resp.status_code == 200
         assert resp.content_type == 'application/octet-stream'
         assert resp.body == b'foo'
+        assert not attacker_root.joinpath('abc.txt').exists()
 
     def test_get_with_output_path(self, tmp_path: pathlib.Path):
-        storage = create_local_storage(tmp_path)
+        storage = create_test_local_storage(tmp_path)
         storage.upload(io.BytesIO(b'foo'), 'abc.txt')
         assert tmp_path.joinpath('abc.txt').exists()
 
@@ -93,16 +123,29 @@ class TestViewMixin:
             expire=arrow.utcnow().shift(hours=1),
             output_path='myfile.txt',
         )
+        assert 'output_path' not in url
 
-        resp = self.client.get(url, headers={'StorageRoot': str(tmp_path)})
+        resp = self.client.get(url)
         assert resp.status_code == 200
         assert resp.content_type == 'application/octet-stream'
-        assert resp.content_disposition == 'attachment; filename=myfile.txt'
+        assert resp.content_disposition == (
+            'attachment; filename="myfile.txt"; filename*=UTF-8\'\'myfile.txt'
+        )
         assert resp.body == b'foo'
+
+        parsed = urlparse(url)
+        query = parse_qs(parsed.query)
+        query['output_path'] = ['evil.html']
+        tampered_url = urlunparse(parsed._replace(query=urlencode(query, doseq=True)))
+
+        resp = self.client.get(tampered_url)
+        assert resp.content_disposition == (
+            'attachment; filename="myfile.txt"; filename*=UTF-8\'\'myfile.txt'
+        )
 
     @pytest.mark.parametrize('method', ['post', 'put'])
     def test_post_put_operation_not_allowed(self, tmp_path: pathlib.Path, method: str):
-        storage = create_local_storage(tmp_path)
+        storage = create_test_local_storage(tmp_path)
 
         url = storage.link_to(
             path='abc.txt',
@@ -112,13 +155,13 @@ class TestViewMixin:
 
         req_method = getattr(self.client, method)
 
-        resp = req_method(url, 'foo', headers={'StorageRoot': str(tmp_path)}, status=403)
+        resp = req_method(url, 'foo', status=403)
         assert resp.status_code == 403
         assert not tmp_path.joinpath('abc.txt').exists()
 
     @pytest.mark.parametrize('method', ['post', 'put'])
     def test_post_put_success(self, tmp_path: pathlib.Path, method):
-        storage = create_local_storage(tmp_path)
+        storage = create_test_local_storage(tmp_path)
 
         assert not tmp_path.joinpath('abc.txt').exists()
 
@@ -130,7 +173,7 @@ class TestViewMixin:
 
         req_method = getattr(self.client, method)
 
-        resp = req_method(url, 'foo', headers={'StorageRoot': str(tmp_path)})
+        resp = req_method(url, 'foo')
         assert resp.status_code == 200
         assert resp.body == b'OK'
 
@@ -138,7 +181,7 @@ class TestViewMixin:
             assert fp.read() == b'foo'
 
     def test_delete_operation_not_allowed(self, tmp_path: pathlib.Path):
-        storage = create_local_storage(tmp_path)
+        storage = create_test_local_storage(tmp_path)
         storage.upload(io.BytesIO(b'foo'), 'abc.txt')
 
         url = storage.link_to(
@@ -147,12 +190,12 @@ class TestViewMixin:
             expire=arrow.utcnow().shift(hours=1),
         )
 
-        resp = self.client.delete(url, headers={'StorageRoot': str(tmp_path)}, status=403)
+        resp = self.client.delete(url, status=403)
         assert resp.status_code == 403
         assert tmp_path.joinpath('abc.txt').exists()
 
     def test_delete_success(self, tmp_path: pathlib.Path):
-        storage = create_local_storage(tmp_path)
+        storage = create_test_local_storage(tmp_path)
         storage.upload(io.BytesIO(b'foo'), 'abc.txt')
 
         assert tmp_path.joinpath('abc.txt').exists()
@@ -163,14 +206,14 @@ class TestViewMixin:
             expire=arrow.utcnow().shift(hours=1),
         )
 
-        resp = self.client.delete(url, headers={'StorageRoot': str(tmp_path)})
+        resp = self.client.delete(url)
         assert resp.status_code == 200
         assert resp.body == b'OK'
 
         assert not tmp_path.joinpath('abc.txt').exists()
 
     def test_multi_operation(self, tmp_path: pathlib.Path):
-        storage = create_local_storage(tmp_path)
+        storage = create_test_local_storage(tmp_path)
         full_path = tmp_path / 'abc.txt'
 
         url = storage.link_to(
@@ -183,16 +226,16 @@ class TestViewMixin:
 
         data = os.urandom(20 * 1024 * 1024)
 
-        resp = self.client.post(url, data, headers={'StorageRoot': str(tmp_path)})
+        resp = self.client.post(url, data)
         assert resp.status_code == 200
         with full_path.open('rb') as fp:
             assert fp.read() == data
 
-        resp = self.client.get(url, headers={'StorageRoot': str(tmp_path)})
+        resp = self.client.get(url)
         assert resp.status_code == 200
         assert resp.body == data
 
-        resp = self.client.delete(url, headers={'StorageRoot': str(tmp_path)})
+        resp = self.client.delete(url)
         assert resp.status_code == 200
         assert not full_path.exists()
 
@@ -207,6 +250,31 @@ class TestStorageOperations:
             ObjectView.storage_prefix_path(StorageLocation.folder1, '.foo.txt')
             == 'Folder-One/foo.txt'
         )
+        assert (
+            ObjectView.storage_prefix_path(StorageLocation.folder1, 'nested/foo.txt')
+            == 'Folder-One/nested/foo.txt'
+        )
+        assert ObjectView.storage_prefix_path(None, 'nested/foo.txt') == 'nested/foo.txt'
+
+    @pytest.mark.parametrize(
+        'filename',
+        [
+            '',
+            '/foo.txt',
+            '../foo.txt',
+            'nested/../foo.txt',
+            './foo.txt',
+            'nested/./foo.txt',
+            'nested//foo.txt',
+            'nested/foo.txt/',
+            'nested\\foo.txt',
+            'nested/\x00foo.txt',
+            'nested/\nfoo.txt',
+        ],
+    )
+    def test_storage_prefix_path_rejects_unsafe_filename(self, filename):
+        with pytest.raises(ValueError, match='Invalid storage filename'):
+            ObjectView.storage_prefix_path(StorageLocation.folder1, filename)
 
     def test_storage_get_profile(self):
         assert ObjectView.storage_get_profile(
@@ -218,10 +286,14 @@ class TestStorageOperations:
             'storage.s3',
         )
 
-    @mock.patch('keg_storage.plugin.uuid.uuid4', lambda: 'bar')
+    @mock.patch('keg_storage.plugin.uuid.uuid4', lambda: uuid.UUID(int=0))
     def test_storage_generate_filename(self):
-        assert ObjectView.storage_generate_filename('foo.txt') == 'bar.txt'
-        assert ObjectView.storage_generate_filename('foo') == 'bar'
+        assert ObjectView.storage_generate_filename('foo.txt') == (
+            '00000000-0000-0000-0000-000000000000.txt'
+        )
+        assert ObjectView.storage_generate_filename('foo') == (
+            '00000000-0000-0000-0000-000000000000'
+        )
 
     @mock.patch.dict(
         'flask.current_app.storage._interfaces',
@@ -238,6 +310,22 @@ class TestStorageOperations:
         )
         assert filename != 'foo.txt'
         assert filename.endswith('.txt')
+
+    @mock.patch.dict(
+        'flask.current_app.storage._interfaces',
+        {'storage.s3': mock.Mock(spec=backends.StorageBackend)},
+    )
+    @mock.patch('keg_storage.plugin.uuid.uuid4', lambda: uuid.UUID(int=0))
+    def test_storage_upload_file_without_extension(self):
+        file_obj = io.BytesIO()
+        filename = ObjectView.storage_upload_file(file_obj, 'README')
+        storage = flask.current_app.storage.get_interface('storage.s3')
+        storage.upload.assert_called_once_with(
+            file_obj,
+            path='Folder-One/00000000-0000-0000-0000-000000000000',
+            extra_args={},
+        )
+        assert filename == '00000000-0000-0000-0000-000000000000'
 
     @mock.patch.dict(
         'flask.current_app.storage._interfaces',
@@ -328,6 +416,36 @@ class TestStorageOperations:
 
     @mock.patch.dict(
         'flask.current_app.storage._interfaces',
+        {
+            'storage.s3': mock.Mock(spec=backends.StorageBackend),
+            'storage.not-s3': mock.Mock(spec=backends.StorageBackend),
+        },
+    )
+    @mock.patch('keg_storage.plugin.uuid.uuid4', lambda: 'bar')
+    def test_storage_upload_form_file_with_overrides(self):
+        with flask.current_app.test_request_context(
+            '/object',
+            method='POST',
+            data={'my_file': (io.BytesIO(b'12345'), 'foo.txt')},
+        ):
+            filename = ObjectView.storage_upload_form_file(
+                'my_file',
+                storage_location=StorageLocation.folder2,
+                storage_profile='storage.not-s3',
+            )
+
+        default_storage = flask.current_app.storage.get_interface('storage.s3')
+        alternate_storage = flask.current_app.storage.get_interface('storage.not-s3')
+        default_storage.upload.assert_not_called()
+        alternate_storage.upload.assert_called_once_with(
+            mock.ANY,
+            path='Folder-Two/bar.txt',
+            extra_args={},
+        )
+        assert filename == 'bar.txt'
+
+    @mock.patch.dict(
+        'flask.current_app.storage._interfaces',
         {'storage.s3': mock.Mock(spec=backends.StorageBackend)},
     )
     def test_storage_download_file(self):
@@ -361,6 +479,20 @@ class TestStorageOperations:
             'Folder-One/foo.txt',
             'Folder-One/bar.txt',
         )
+
+    @mock.patch.dict(
+        'flask.current_app.storage._interfaces',
+        {'storage.s3': mock.Mock(spec=backends.StorageBackend)},
+    )
+    @mock.patch('keg_storage.plugin.uuid.uuid4', lambda: uuid.UUID(int=0))
+    def test_storage_duplicate_file_without_extension(self):
+        filename = ObjectView.storage_duplicate_file('README')
+        storage = flask.current_app.storage.get_interface('storage.s3')
+        storage.copy.assert_called_once_with(
+            'Folder-One/README',
+            'Folder-One/00000000-0000-0000-0000-000000000000',
+        )
+        assert filename == '00000000-0000-0000-0000-000000000000'
 
     @mock.patch.dict(
         'flask.current_app.storage._interfaces',

@@ -328,7 +328,9 @@ class AzureStorage(base.StorageBackend):
             account_key=self.key,
             permission=perms,
             expiry=expire,
-            content_disposition=f'attachment;filename={output_path}' if output_path else None,
+            content_disposition=(
+                base.attachment_content_disposition(output_path) if output_path else None
+            ),
             content_type=content_type,
         )
         escaped_path = urllib.parse.quote(path, safe='')

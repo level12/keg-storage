@@ -360,7 +360,11 @@ class TestS3Storage:
     def test_link_to_download_output_path(self, m_boto):
         op = ShareLinkOperation.download
         method = 'get_object'
-        extra_params = {'ResponseContentDisposition': 'attachment;filename=myfile.txt'}
+        extra_params = {
+            'ResponseContentDisposition': (
+                'attachment; filename="myfile.txt"; filename*=UTF-8\'\'myfile.txt'
+            ),
+        }
         s3 = backends.S3Storage('bucket', aws_region='us-east-1')
         s3.client.generate_presigned_url.return_value = 'https://localhost/foo'
 
