@@ -1,6 +1,18 @@
 Changelog
 =========
 
+Unreleased
+----------
+
+- **Breaking (SFTP):** confine operations to relative paths, with an optional
+  ``root`` prefix. Existing absolute keys now raise ``SFTPError('Invalid path')``;
+  migrate by configuring ``root='/'`` and dropping the leading ``/`` from each
+  key. Previously issued internal links containing absolute keys no longer work.
+- reject LocalFS copies whose source and destination are the same physical file
+  instead of truncating the file
+- return string UUID filenames for extensionless uploads and duplicates
+
+
 0.20261119.1 released 2026-11-19
 --------------------------------
 

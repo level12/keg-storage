@@ -62,6 +62,13 @@ class LocalFSStorage(base.InternalLinksStorageBackend):
     def _resolve_path(self, path: str) -> pathlib.Path:
         return self.root.joinpath(path).resolve()
 
+    def _resolve_valid_path(self, path: str) -> pathlib.Path:
+        self._validate_path(path)
+        resolved_path = self._resolve_path(path)
+        if not self._is_under_root(resolved_path):
+            raise LocalFSError('Invalid path')
+        return resolved_path
+
     def _is_file(self, path: pathlib.Path) -> bool:
         return path.is_file() and not path.is_symlink()
 
@@ -70,11 +77,7 @@ class LocalFSStorage(base.InternalLinksStorageBackend):
             raise ValueError('Unsupported characters in path')
 
     def list(self, path: str) -> list[base.ListEntry]:
-        self._validate_path(path)
-        resolved_path = self._resolve_path(path)
-        if not self._is_under_root(resolved_path):
-            # prevent escaping the root by including `..` or symlinks in `path`
-            raise LocalFSError('Invalid path')
+        resolved_path = self._resolve_valid_path(path)
 
         if not resolved_path.is_dir():
             raise LocalFSError(f'{path} does not exist or is not a directory')
@@ -104,10 +107,7 @@ class LocalFSStorage(base.InternalLinksStorageBackend):
         return sorted(lst, key=attrgetter('name'))
 
     def open(self, path: str, mode: base.FileMode | str, extra_args=None):
-        self._validate_path(path)
-        path = self._resolve_path(path)
-        if not self._is_under_root(path):
-            raise LocalFSError('Invalid path')
+        path = self._resolve_valid_path(path)
         if path.exists() and not self._is_file(path):
             raise LocalFSError('Invalid path')
 
@@ -119,14 +119,20 @@ class LocalFSStorage(base.InternalLinksStorageBackend):
         return LocalFSFile(path, mode)
 
     def copy(self, path: str, new_path: str):
+        source_path = self._resolve_valid_path(path)
+        destination_path = self._resolve_valid_path(new_path)
+        if source_path == destination_path or (
+            source_path.exists()
+            and destination_path.exists()
+            and source_path.samefile(destination_path)
+        ):
+            raise LocalFSError('Source and destination paths must differ')
+
         with self.open(path, base.FileMode.read) as source:
             self.upload(source, new_path)
 
     def delete(self, path: str):
-        self._validate_path(path)
-        path = self._resolve_path(path)
-        if not self._is_under_root(path):
-            raise LocalFSError('Invalid path')
+        path = self._resolve_valid_path(path)
         if not path.exists():
             return
 

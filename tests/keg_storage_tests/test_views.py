@@ -3,6 +3,7 @@ import os
 import pathlib
 from unittest import mock
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
+import uuid
 
 import arrow
 import flask
@@ -257,10 +258,14 @@ class TestStorageOperations:
             'storage.s3',
         )
 
-    @mock.patch('keg_storage.plugin.uuid.uuid4', lambda: 'bar')
+    @mock.patch('keg_storage.plugin.uuid.uuid4', lambda: uuid.UUID(int=0))
     def test_storage_generate_filename(self):
-        assert ObjectView.storage_generate_filename('foo.txt') == 'bar.txt'
-        assert ObjectView.storage_generate_filename('foo') == 'bar'
+        assert ObjectView.storage_generate_filename('foo.txt') == (
+            '00000000-0000-0000-0000-000000000000.txt'
+        )
+        assert ObjectView.storage_generate_filename('foo') == (
+            '00000000-0000-0000-0000-000000000000'
+        )
 
     @mock.patch.dict(
         'flask.current_app.storage._interfaces',
@@ -277,6 +282,22 @@ class TestStorageOperations:
         )
         assert filename != 'foo.txt'
         assert filename.endswith('.txt')
+
+    @mock.patch.dict(
+        'flask.current_app.storage._interfaces',
+        {'storage.s3': mock.Mock(spec=backends.StorageBackend)},
+    )
+    @mock.patch('keg_storage.plugin.uuid.uuid4', lambda: uuid.UUID(int=0))
+    def test_storage_upload_file_without_extension(self):
+        file_obj = io.BytesIO()
+        filename = ObjectView.storage_upload_file(file_obj, 'README')
+        storage = flask.current_app.storage.get_interface('storage.s3')
+        storage.upload.assert_called_once_with(
+            file_obj,
+            path='Folder-One/00000000-0000-0000-0000-000000000000',
+            extra_args={},
+        )
+        assert filename == '00000000-0000-0000-0000-000000000000'
 
     @mock.patch.dict(
         'flask.current_app.storage._interfaces',
@@ -430,6 +451,20 @@ class TestStorageOperations:
             'Folder-One/foo.txt',
             'Folder-One/bar.txt',
         )
+
+    @mock.patch.dict(
+        'flask.current_app.storage._interfaces',
+        {'storage.s3': mock.Mock(spec=backends.StorageBackend)},
+    )
+    @mock.patch('keg_storage.plugin.uuid.uuid4', lambda: uuid.UUID(int=0))
+    def test_storage_duplicate_file_without_extension(self):
+        filename = ObjectView.storage_duplicate_file('README')
+        storage = flask.current_app.storage.get_interface('storage.s3')
+        storage.copy.assert_called_once_with(
+            'Folder-One/README',
+            'Folder-One/00000000-0000-0000-0000-000000000000',
+        )
+        assert filename == '00000000-0000-0000-0000-000000000000'
 
     @mock.patch.dict(
         'flask.current_app.storage._interfaces',

@@ -7,7 +7,7 @@ import wrapt
 
 import keg_storage
 from keg_storage.backends.base import FileMode, ListEntry
-from keg_storage.backends.sftp import SFTPRemoteFile
+from keg_storage.backends.sftp import SFTPError, SFTPRemoteFile
 
 
 def sftp_mocked(**kwargs):
@@ -105,27 +105,27 @@ class TestSFTPStorage:
 
     @sftp_mocked()
     def test_sftp_delete_file(self, sftp, m_sftp, m_log):
-        sftp.delete('/tmp/abc/baz.txt')
-        m_sftp.remove.assert_called_once_with('/tmp/abc/baz.txt')
-        m_log.info.assert_called_once_with("Deleting remote file '%s'", '/tmp/abc/baz.txt')
+        sftp.delete('tmp/abc/baz.txt')
+        m_sftp.remove.assert_called_once_with('tmp/abc/baz.txt')
+        m_log.info.assert_called_once_with("Deleting remote file '%s'", 'tmp/abc/baz.txt')
 
     @sftp_mocked()
     def test_open(self, sftp, m_sftp, m_log):
-        file = sftp.open('/tmp/foo.txt', FileMode.read)
+        file = sftp.open('tmp/foo.txt', FileMode.read)
         assert isinstance(file, SFTPRemoteFile)
 
         assert file.mode == FileMode.read
-        assert file.path == '/tmp/foo.txt'
+        assert file.path == 'tmp/foo.txt'
         assert file.sftp is m_sftp
 
-        m_sftp.open.assert_called_once_with('/tmp/foo.txt', 'rb')
+        m_sftp.open.assert_called_once_with('tmp/foo.txt', 'rb')
 
     @sftp_mocked()
     def test_read_operations(self, sftp, m_sftp, m_log):
         m_file = m_sftp.open.return_value
         m_file.read.return_value = b'some data'
 
-        with sftp.open('/tmp/foo.txt', FileMode.read) as file:
+        with sftp.open('tmp/foo.txt', FileMode.read) as file:
             assert file.read(4) == b'some data'
             m_file.read.assert_called_once_with(4)
             m_file.close.assert_not_called()
@@ -133,14 +133,14 @@ class TestSFTPStorage:
 
     @sftp_mocked()
     def test_read_not_permitted(self, sftp, m_sftp, m_log):
-        with sftp.open('/tmp/foo.txt', FileMode.write) as file:
+        with sftp.open('tmp/foo.txt', FileMode.write) as file:
             with pytest.raises(IOError, match='File not opened for reading'):
                 file.read(1)
 
     @sftp_mocked()
     def test_write_operations(self, sftp, m_sftp, m_log):
         m_file = m_sftp.open.return_value
-        with sftp.open('/tmp/foo.txt', FileMode.write) as file:
+        with sftp.open('tmp/foo.txt', FileMode.write) as file:
             file.write(b'some data')
             m_file.write.assert_called_once_with(b'some data')
             m_file.close.assert_not_called()
@@ -148,6 +148,51 @@ class TestSFTPStorage:
 
     @sftp_mocked()
     def test_write_not_permitted(self, sftp, m_sftp, m_log):
-        with sftp.open('/tmp/foo.txt', FileMode.read) as file:
+        with sftp.open('tmp/foo.txt', FileMode.read) as file:
             with pytest.raises(IOError, match='File not opened for writing'):
                 file.write(b'')
+
+    @sftp_mocked()
+    def test_rejects_unsafe_paths(self, sftp, m_sftp, m_log):
+        unsafe_paths = (
+            '../secret.txt',
+            'nested/../secret.txt',
+            '/absolute.txt',
+            'bad\\path',
+            'bad\npath',
+        )
+
+        for path in unsafe_paths:
+            with pytest.raises(SFTPError, match='Invalid path'):
+                sftp.list(path)
+            with pytest.raises(SFTPError, match='Invalid path'):
+                sftp.open(path, FileMode.read)
+            with pytest.raises(SFTPError, match='Invalid path'):
+                sftp.delete(path)
+
+        m_sftp.listdir_attr.assert_not_called()
+        m_sftp.open.assert_not_called()
+        m_sftp.remove.assert_not_called()
+
+    @sftp_mocked(root='/srv/storage')
+    def test_root_prefixes_valid_paths(self, sftp, m_sftp, m_log):
+        m_sftp.listdir_attr.return_value = []
+
+        assert sftp.list('.') == []
+        file = sftp.open('nested/foo.txt', FileMode.read)
+        sftp.delete('nested/foo.txt')
+
+        m_sftp.listdir_attr.assert_called_once_with('/srv/storage')
+        m_sftp.open.assert_called_once_with('/srv/storage/nested/foo.txt', 'rb')
+        m_sftp.remove.assert_called_once_with('/srv/storage/nested/foo.txt')
+        assert file.path == '/srv/storage/nested/foo.txt'
+
+    @sftp_mocked(root='/srv/storage')
+    def test_rejects_storage_root_for_file_operations(self, sftp, m_sftp, m_log):
+        with pytest.raises(SFTPError, match='Invalid path'):
+            sftp.open('.', FileMode.read)
+        with pytest.raises(SFTPError, match='Invalid path'):
+            sftp.delete('')
+
+        m_sftp.open.assert_not_called()
+        m_sftp.remove.assert_not_called()

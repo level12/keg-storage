@@ -215,12 +215,12 @@ class StorageOperations:
         return filename
 
     @staticmethod
-    def storage_generate_filename(filename):
+    def storage_generate_filename(filename) -> str:
         """Generate a UUID-based filename for an object, typically for upload to prevent
         path collisions. If the provided original filename has an extension, honor that
         extension."""
         name_parts = filename.rsplit('.', 1)
-        new_filename = uuid.uuid4()
+        new_filename = str(uuid.uuid4())
         if len(name_parts) > 1:
             extension = name_parts[-1]
             return f'{new_filename}.{extension}'

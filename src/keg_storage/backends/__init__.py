@@ -37,9 +37,9 @@ if find_spec('boto3') is not None:
     __all__.extend(['s3', 'S3Storage'])
 
 if find_spec('paramiko') is not None:
-    from .sftp import SFTPStorage  # noqa
+    from .sftp import SFTPError, SFTPStorage  # noqa
 
-    __all__.extend(['sftp', 'SFTPStorage'])
+    __all__.extend(['sftp', 'SFTPError', 'SFTPStorage'])
 
 if find_spec('azure') is not None:
     from .azure import AzureStorage  # noqa
