@@ -1,7 +1,7 @@
 Changelog
 =========
 
-Unreleased
+0.20261120.1 released 2026-11-20
 ----------
 
 - **Breaking (SFTP):** confine operations to relative paths, with an optional
