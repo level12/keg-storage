@@ -8,6 +8,11 @@ class DefaultProfile:
     SITE_NAME = 'Keg Storage Demo'
     SITE_ABBR = 'KS Demo'
 
+    # Required to enable the local-storage link view. Configure these with a
+    # fixed storage directory and an application-specific random secret.
+    KEG_STORAGE_TA_ROOT = None
+    KEG_STORAGE_TA_SECRET_KEY = None
+
     KEG_STORAGE_PROFILES = [
         (
             keg_storage.S3Storage,
@@ -15,8 +20,6 @@ class DefaultProfile:
                 'name': 'storage.s3',
                 'bucket': 'storage.test',
                 'aws_region': 'us-east-1',
-                'aws_access_key_id': 'access-key-id',
-                'aws_secret_access_key': 'secret-key',
             },
         ),
         (

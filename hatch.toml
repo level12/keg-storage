@@ -4,8 +4,7 @@ dev-mode-dirs = ['src']
 
 
 [build.targets.wheel]
-# The demo application is test-only and must not be installed with the library.
-packages = ['src/keg_storage']
+packages = ['src/keg_storage', 'src/keg_storage_ta']
 
 
 ## Version
